@@ -32,8 +32,8 @@ import androidx.compose.ui.tooling.preview.Preview
 fun SettingsScreen(
     onLogout: () -> Unit
 ) {
-    var fullName by remember { mutableStateOf("John Doe") }
-    var email by remember { mutableStateOf("john.doe@example.com") }
+    var fullName by remember { mutableStateOf("Arosha") }
+    var email by remember { mutableStateOf("Arosha@gmail.com.com") }
     var currentPassword by remember { mutableStateOf("") }
     var newPassword by remember { mutableStateOf("") }
     var confirmPassword by remember { mutableStateOf("") }
