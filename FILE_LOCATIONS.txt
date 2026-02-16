@@ -1,0 +1,108 @@
+NoteHub Project - All File Locations
+====================================
+
+PROJECT ROOT:
+c:\Users\USER\AndroidStudioProjects\notehub
+
+THEME & DESIGN:
+---------------
+Color.kt:
+c:\Users\USER\AndroidStudioProjects\notehub\app\src\main\java\com\example\notehub\ui\theme\Color.kt
+
+Theme.kt:
+c:\Users\USER\AndroidStudioProjects\notehub\app\src\main\java\com\example\notehub\ui\theme\Theme.kt
+
+
+NAVIGATION:
+-----------
+Screen.kt (Routes):
+c:\Users\USER\AndroidStudioProjects\notehub\app\src\main\java\com\example\notehub\navigation\Screen.kt
+
+MainScreen.kt (Drawer & NavHost):
+c:\Users\USER\AndroidStudioProjects\notehub\app\src\main\java\com\example\notehub\MainScreen.kt
+
+
+MAIN ACTIVITY:
+--------------
+MainActivity.kt:
+c:\Users\USER\AndroidStudioProjects\notehub\app\src\main\java\com\example\notehub\MainActivity.kt
+
+
+AUTH SCREENS:
+-------------
+LoginScreen.kt:
+c:\Users\USER\AndroidStudioProjects\notehub\app\src\main\java\com\example\notehub\screens\LoginScreen.kt
+
+SignUpScreen.kt:
+c:\Users\USER\AndroidStudioProjects\notehub\app\src\main\java\com\example\notehub\screens\SignUpScreen.kt
+
+
+APP SCREENS:
+------------
+DashboardScreen.kt:
+c:\Users\USER\AndroidStudioProjects\notehub\app\src\main\java\com\example\notehub\screens\DashboardScreen.kt
+
+NotesScreen.kt:
+c:\Users\USER\AndroidStudioProjects\notehub\app\src\main\java\com\example\notehub\screens\NotesScreen.kt
+
+CalendarScreen.kt:
+c:\Users\USER\AndroidStudioProjects\notehub\app\src\main\java\com\example\notehub\screens\CalendarScreen.kt
+
+UploadsScreen.kt:
+c:\Users\USER\AndroidStudioProjects\notehub\app\src\main\java\com\example\notehub\screens\UploadsScreen.kt
+
+SettingsScreen.kt:
+c:\Users\USER\AndroidStudioProjects\notehub\app\src\main\java\com\example\notehub\screens\SettingsScreen.kt
+
+
+CONFIGURATION:
+--------------
+build.gradle.kts:
+c:\Users\USER\AndroidStudioProjects\notehub\app\build.gradle.kts
+
+libs.versions.toml:
+c:\Users\USER\AndroidStudioProjects\notehub\gradle\libs.versions.toml
+
+
+DOCUMENTATION:
+--------------
+README.md:
+c:\Users\USER\AndroidStudioProjects\notehub\README.md
+
+QUICK_REFERENCE.md:
+c:\Users\USER\AndroidStudioProjects\notehub\QUICK_REFERENCE.md
+
+
+FOLDER SHORTCUTS:
+-----------------
+Theme folder:
+c:\Users\USER\AndroidStudioProjects\notehub\app\src\main\java\com\example\notehub\ui\theme
+
+Navigation folder:
+c:\Users\USER\AndroidStudioProjects\notehub\app\src\main\java\com\example\notehub\navigation
+
+Screens folder:
+c:\Users\USER\AndroidStudioProjects\notehub\app\src\main\java\com\example\notehub\screens
+
+Main package:
+c:\Users\USER\AndroidStudioProjects\notehub\app\src\main\java\com\example\notehub
+
+
+HOW TO OPEN IN ANDROID STUDIO:
+-------------------------------
+Method 1: Press Ctrl+Shift+N, type filename (e.g., "DashboardScreen")
+Method 2: Use Project panel on left, navigate through folders
+Method 3: Press Ctrl+E for recent files
+
+
+HOW TO RUN:
+-----------
+1. Open Android Studio
+2. Wait for Gradle sync
+3. Click green Run button (▶️) or press Shift+F10
+4. Select emulator or device
+5. App will launch!
+
+
+ALL FILES ARE ALREADY CREATED AND SAVED IN YOUR PROJECT!
+=========================================================

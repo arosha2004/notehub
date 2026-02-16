@@ -1,0 +1,37 @@
+package com.example.notehub.navigation
+
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Dashboard
+import androidx.compose.material.icons.filled.Note
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Upload
+import androidx.compose.ui.graphics.vector.ImageVector
+
+sealed class Screen(val route: String, val title: String, val icon: ImageVector? = null) {
+    // Auth Screens (no icon needed)
+    data object Login : Screen("login", "Login")
+    data object SignUp : Screen("signup", "Sign Up")
+    
+    // Main App Screens (with navigation drawer items)
+    data object Dashboard : Screen("dashboard", "Dashboard", Icons.Filled.Dashboard)
+    data object Notes : Screen("notes", "All Notes", Icons.Filled.Note)
+    data object Uploads : Screen("uploads", "Uploads", Icons.Filled.Upload)
+    data object Settings : Screen("settings", "Settings", Icons.Filled.Settings)
+    
+    // Feature Screens (no icon needed for navigation)
+    data object AddNote : Screen("add_note", "Add Note")
+    
+    companion object {
+        // List of screens to show in the navigation drawer
+        val drawerScreens = listOf(
+            Dashboard,
+            Notes,
+            Uploads,
+            Settings
+        )
+        
+        fun shouldShowDrawer(route: String?): Boolean {
+            return route != Login.route && route != SignUp.route && route != AddNote.route
+        }
+    }
+}
