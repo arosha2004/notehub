@@ -87,7 +87,7 @@ fun SettingsScreen(
                     contentAlignment = Alignment.Center
                 ) {
                     Image(
-                        painter = painterResource(R.drawable.abcd),
+                        painter = painterResource(R.drawable.icon),
                         contentDescription = "",
                         contentScale = ContentScale.Crop
                     )
