@@ -2,7 +2,7 @@ package com.example.notehub.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// ========== LIGHT MODE COLORS ==========
+// LIGHT MODE COLORS
 
 // Primary Colors - Deep Purple & Violet (Luxury & Modern)
 val PrimaryBlue = Color(0xFF6366F1) // Vibrant Indigo

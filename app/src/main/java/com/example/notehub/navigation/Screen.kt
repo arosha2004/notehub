@@ -20,6 +20,7 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector?
     
     // Feature Screens (no icon needed for navigation)
     data object AddNote : Screen("add_note", "Add Note")
+    data object NoteDetail : Screen("note_detail/{noteId}", "Note Details")
     
     companion object {
         // List of screens to show in the navigation drawer
@@ -31,7 +32,8 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector?
         )
         
         fun shouldShowDrawer(route: String?): Boolean {
-            return route != Login.route && route != SignUp.route && route != AddNote.route
+            return route != Login.route && route != SignUp.route && 
+                   route != AddNote.route && route?.startsWith("note_detail") != true
         }
     }
 }

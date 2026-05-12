@@ -1,5 +1,6 @@
 package com.example.notehub.screens
 
+import androidx.compose.animation.*
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -7,12 +8,12 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -22,29 +23,46 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-
 import com.example.notehub.R
+import com.example.notehub.data.AuthResult
+import com.example.notehub.data.AuthService
+import com.example.notehub.ui.components.NoteHubTextField
 import com.example.notehub.ui.theme.*
 import androidx.compose.ui.tooling.preview.Preview
+import kotlinx.coroutines.launch
 
+/**
+ * LoginScreen — A premium, well-designed authentication screen.
+ */
 @Composable
 fun LoginScreen(
     onLoginSuccess: () -> Unit,
     onNavigateToSignUp: () -> Unit
 ) {
+    // ── STATE ──────────────────────────────────────────────────────
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
     var isLoading by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
     
+    val scope = rememberCoroutineScope()
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    // ── UI LAYOUT ──────────────────────────────────────────────────
+    Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
+        containerColor = MaterialTheme.colorScheme.background
+    ) { _ ->
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(
-                brush = androidx.compose.ui.graphics.Brush.verticalGradient(
+                brush = Brush.verticalGradient(
                     colors = listOf(
                         MaterialTheme.colorScheme.background,
-                        MaterialTheme.colorScheme.surfaceVariant
+                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                        MaterialTheme.colorScheme.primary.copy(alpha = 0.05f)
                     )
                 )
             ),
@@ -53,222 +71,216 @@ fun LoginScreen(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 24.dp),
+                .padding(horizontal = 28.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Premium Logo Section
-            Box(
-                modifier = Modifier
-                    .size(80.dp)
-                    .background(
-                        brush = androidx.compose.ui.graphics.Brush.linearGradient(
-                            colors = listOf(GradientStart, GradientEnd)
-                        ),
-                        shape = RoundedCornerShape(20.dp)
-                    ),
-                contentAlignment = Alignment.Center
+            // LOGO SECTION
+            Surface(
+                modifier = Modifier.size(90.dp),
+                shape = RoundedCornerShape(24.dp),
+                color = Color.Transparent,
+                shadowElevation = 12.dp
             ) {
-                Image(
-                    painter = painterResource(id = R.drawable.icon),
-                    contentDescription = "NoteHub Logo",
-                    modifier = Modifier.size(56.dp)
-                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(
+                            brush = Brush.linearGradient(
+                                colors = listOf(GradientStart, GradientEnd)
+                            )
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Image(
+                        painter = painterResource(id = R.drawable.icon),
+                        contentDescription = "NoteHub Logo",
+                        modifier = Modifier.size(60.dp)
+                    )
+                }
             }
-            
-            Spacer(modifier = Modifier.height(24.dp))
-            
+
+            Spacer(modifier = Modifier.height(32.dp))
+
             Text(
-                text = "NoteHub",
-                fontSize = 36.sp,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onBackground,
-                letterSpacing = (-0.5).sp
+                text = "Welcome Back",
+                fontSize = 32.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = TextPrimary,
+                letterSpacing = (-1).sp
             )
-            
+
             Text(
-                text = "Your premium note-taking companion",
-                fontSize = 15.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.padding(top = 8.dp, bottom = 48.dp),
-                letterSpacing = 0.2.sp
+                text = "Sign in to access your notes",
+                fontSize = 16.sp,
+                color = TextSecondary,
+                modifier = Modifier.padding(top = 8.dp, bottom = 48.dp)
             )
-            
-            // Login Form Card
+
+            // LOGIN CARD
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(24.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surface
-                ),
-                elevation = CardDefaults.cardElevation(
-                    defaultElevation = 8.dp
-                )
+                shape = RoundedCornerShape(32.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
             ) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(28.dp)
                 ) {
-                    Text(
-                        text = "Welcome Back",
-                        fontSize = 28.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.padding(bottom = 8.dp),
-                        letterSpacing = (-0.5).sp
-                    )
-                    
-                    Text(
-                        text = "Sign in to continue",
-                        fontSize = 15.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(bottom = 32.dp)
-                    )
-                    
-                    // Email Field
-                    OutlinedTextField(
+                    // ERROR ALERT
+                    AnimatedVisibility(
+                        visible = errorMessage != null,
+                        enter = expandVertically() + fadeIn(),
+                        exit = shrinkVertically() + fadeOut()
+                    ) {
+                        errorMessage?.let { msg ->
+                            Surface(
+                                color = ErrorRed.copy(alpha = 0.1f),
+                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier.padding(bottom = 24.dp).fillMaxWidth()
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(12.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(Icons.Filled.Error, contentDescription = null, tint = ErrorRed, modifier = Modifier.size(20.dp))
+                                    Spacer(modifier = Modifier.width(12.dp))
+                                    Text(text = msg, color = ErrorRed, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                                }
+                            }
+                        }
+                    }
+
+                    // EMAIL FIELD
+                    NoteHubTextField(
                         value = email,
-                        onValueChange = { email = it },
-                        label = { Text("Email Address") },
-                        placeholder = { Text("Enter your email") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(
-                            keyboardType = KeyboardType.Email
-                        ),
-                        shape = RoundedCornerShape(8.dp),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = MaterialTheme.colorScheme.primary,
-                            unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
-                            focusedLabelColor = MaterialTheme.colorScheme.primary,
-                            unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                            cursorColor = MaterialTheme.colorScheme.primary,
-                            focusedTextColor = MaterialTheme.colorScheme.onSurface,
-                            unfocusedTextColor = MaterialTheme.colorScheme.onSurface
-                        )
+                        onValueChange = { 
+                            email = it
+                            errorMessage = null // clear error when typing
+                        },
+                        label = "Email Address",
+                        placeholder = "you@example.com",
+                        leadingIcon = Icons.Filled.Email,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email)
                     )
-                    
-                    Spacer(modifier = Modifier.height(16.dp))
-                    
-                    // Password Field
-                    OutlinedTextField(
+
+                    Spacer(modifier = Modifier.height(20.dp))
+
+                    // PASSWORD FIELD
+                    NoteHubTextField(
                         value = password,
-                        onValueChange = { password = it },
-                        label = { Text("Password") },
-                        placeholder = { Text("Enter your password") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
+                        onValueChange = { 
+                            password = it
+                            errorMessage = null
+                        },
+                        label = "Password",
+                        placeholder = "••••••••",
+                        leadingIcon = Icons.Filled.Lock,
                         visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                        keyboardOptions = KeyboardOptions(
-                            keyboardType = KeyboardType.Password
-                        ),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                         trailingIcon = {
                             IconButton(onClick = { passwordVisible = !passwordVisible }) {
                                 Icon(
                                     imageVector = if (passwordVisible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff,
-                                    contentDescription = if (passwordVisible) "Hide password" else "Show password",
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                    contentDescription = null,
+                                    tint = IconSecondary
                                 )
                             }
-                        },
-                        shape = RoundedCornerShape(8.dp),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = MaterialTheme.colorScheme.primary,
-                            unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
-                            focusedLabelColor = MaterialTheme.colorScheme.primary,
-                            unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                            cursorColor = MaterialTheme.colorScheme.primary,
-                            focusedTextColor = MaterialTheme.colorScheme.onSurface,
-                            unfocusedTextColor = MaterialTheme.colorScheme.onSurface
-                        )
+                        }
                     )
-                    
-                    // Forgot Password
+
                     Text(
                         text = "Forgot Password?",
                         fontSize = 14.sp,
-                        color = MaterialTheme.colorScheme.primary,
+                        color = PrimaryBlue,
+                        fontWeight = FontWeight.Bold,
                         modifier = Modifier
                             .align(Alignment.End)
-                            .padding(top = 8.dp)
-                            .clickable { /* Handle forgot password */ },
-                        fontWeight = FontWeight.Medium
+                            .padding(top = 12.dp)
+                            .clickable {
+                                scope.launch {
+                                    snackbarHostState.showSnackbar(
+                                        message = "Password reset coming soon!",
+                                        duration = SnackbarDuration.Short
+                                    )
+                                }
+                            }
                     )
-                    
+
                     Spacer(modifier = Modifier.height(32.dp))
-                    
-                    // Login Button with Gradient
+
+                    // SIGN IN BUTTON
                     Button(
                         onClick = {
-                            isLoading = true
-                            // Simulate login (in real app, validate and call API)
-                            // For now, just navigate after a brief delay
-                            onLoginSuccess()
+                            scope.launch {
+                                isLoading = true
+                                errorMessage = null
+                                when (val result = AuthService.login(email, password)) {
+                                    is AuthResult.Success -> onLoginSuccess()
+                                    is AuthResult.Error -> {
+                                        errorMessage = result.message
+                                        isLoading = false
+                                    }
+                                    else -> {}
+                                }
+                            }
                         },
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(56.dp),
                         shape = RoundedCornerShape(16.dp),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.primary,
-                            contentColor = MaterialTheme.colorScheme.onPrimary,
-                            disabledContainerColor = MaterialTheme.colorScheme.outlineVariant,
-                            disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                            containerColor = PrimaryBlue,
+                            contentColor = Color.White
                         ),
-                        elevation = ButtonDefaults.buttonElevation(
-                            defaultElevation = 4.dp,
-                            pressedElevation = 2.dp
-                        ),
-                        enabled = email.isNotEmpty() && password.isNotEmpty() && !isLoading
+                        enabled = !isLoading
                     ) {
                         if (isLoading) {
                             CircularProgressIndicator(
                                 modifier = Modifier.size(24.dp),
-                                color = TextOnPrimary,
-                                strokeWidth = 2.5.dp
+                                color = Color.White,
+                                strokeWidth = 3.dp
                             )
                         } else {
                             Text(
                                 text = "Sign In",
                                 fontSize = 17.sp,
-                                fontWeight = FontWeight.Bold,
-                                letterSpacing = 0.5.sp
+                                fontWeight = FontWeight.Bold
                             )
                         }
                     }
                 }
             }
-            
-            // Sign Up Link
+
+            // FOOTER
             Row(
-                modifier = Modifier.padding(top = 24.dp),
+                modifier = Modifier.padding(top = 32.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Don't have an account? ",
-                    fontSize = 14.sp,
-                    color = MaterialTheme.colorScheme.onBackground
+                    text = "New to NoteHub? ",
+                    fontSize = 15.sp,
+                    color = TextSecondary
                 )
                 Text(
-                    text = "Sign Up",
-                    fontSize = 14.sp,
-                    color = MaterialTheme.colorScheme.primary,
-                    fontWeight = FontWeight.Bold,
+                    text = "Create Account",
+                    fontSize = 15.sp,
+                    color = PrimaryBlue,
+                    fontWeight = FontWeight.ExtraBold,
                     modifier = Modifier.clickable { onNavigateToSignUp() }
                 )
             }
         }
     }
+    } // close Scaffold
 }
 
 @Preview(showBackground = true)
 @Composable
 fun LoginScreenPreview() {
     NoteHubTheme {
-        LoginScreen(
-            onLoginSuccess = {},
-            onNavigateToSignUp = {}
-        )
+        LoginScreen(onLoginSuccess = {}, onNavigateToSignUp = {})
     }
 }
+

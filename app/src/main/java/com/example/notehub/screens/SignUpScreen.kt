@@ -1,5 +1,6 @@
 package com.example.notehub.screens
 
+import androidx.compose.animation.*
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -9,30 +10,37 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.notehub.R
+import com.example.notehub.data.AuthResult
+import com.example.notehub.data.AuthService
+import com.example.notehub.ui.components.NoteHubTextField
 import com.example.notehub.ui.theme.*
 import androidx.compose.ui.tooling.preview.Preview
+import kotlinx.coroutines.launch
 
+/**
+ * SignUpScreen — Premium registration screen.
+ */
 @Composable
 fun SignUpScreen(
     onSignUpSuccess: () -> Unit,
     onNavigateToLogin: () -> Unit
 ) {
+    // ── STATE ──────────────────────────────────────────────────────
     var fullName by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
@@ -40,222 +48,211 @@ fun SignUpScreen(
     var passwordVisible by remember { mutableStateOf(false) }
     var confirmPasswordVisible by remember { mutableStateOf(false) }
     var isLoading by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
     
+    val scope = rememberCoroutineScope()
+    val scrollState = rememberScrollState()
+
+    // ── UI LAYOUT ──────────────────────────────────────────────────
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(
-                brush = androidx.compose.ui.graphics.Brush.verticalGradient(
+                brush = Brush.verticalGradient(
                     colors = listOf(
-                        Color(0xFFF8F7FF),
-                        Color(0xFFEEECFF)
+                        MaterialTheme.colorScheme.background,
+                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                        MaterialTheme.colorScheme.primary.copy(alpha = 0.05f)
                     )
                 )
-            )
-            .verticalScroll(rememberScrollState()),
+            ),
         contentAlignment = Alignment.Center
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 24.dp, vertical = 32.dp),
+                .verticalScroll(scrollState)
+                .padding(horizontal = 28.dp, vertical = 40.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Premium Logo Section
-            Box(
-                modifier = Modifier
-                    .size(80.dp)
-                    .background(
-                        brush = androidx.compose.ui.graphics.Brush.linearGradient(
-                            colors = listOf(GradientStart, GradientEnd)
-                        ),
-                        shape = RoundedCornerShape(20.dp)
-                    ),
-                contentAlignment = Alignment.Center
+            // LOGO SECTION
+            Surface(
+                modifier = Modifier.size(80.dp),
+                shape = RoundedCornerShape(20.dp),
+                color = Color.Transparent,
+                shadowElevation = 8.dp
             ) {
-                Image(
-                    painter = painterResource(id = R.drawable.icon),
-                    contentDescription = "NoteHub Logo",
-                    modifier = Modifier.size(56.dp)
-                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(
+                            brush = Brush.linearGradient(
+                                colors = listOf(GradientStart, GradientEnd)
+                            )
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Image(
+                        painter = painterResource(id = R.drawable.icon),
+                        contentDescription = null,
+                        modifier = Modifier.size(50.dp)
+                    )
+                }
             }
-            
+
             Spacer(modifier = Modifier.height(24.dp))
-            
+
             Text(
-                text = "NoteHub",
-                fontSize = 36.sp,
-                fontWeight = FontWeight.Bold,
+                text = "Create Account",
+                fontSize = 30.sp,
+                fontWeight = FontWeight.ExtraBold,
                 color = TextPrimary,
                 letterSpacing = (-0.5).sp
             )
-            
+
             Text(
-                text = "Start your premium note-taking journey",
+                text = "Join our community today",
                 fontSize = 15.sp,
                 color = TextSecondary,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.padding(top = 8.dp, bottom = 48.dp),
-                letterSpacing = 0.2.sp
+                modifier = Modifier.padding(top = 8.dp, bottom = 40.dp)
             )
-            
-            // Sign Up Form Card
+
+            // FORM CARD
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(24.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = CardBackground
-                ),
-                elevation = CardDefaults.cardElevation(
-                    defaultElevation = 8.dp
-                )
+                shape = RoundedCornerShape(32.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
             ) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(28.dp)
                 ) {
-                    Text(
-                        text = "Create Account",
-                        fontSize = 28.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = TextPrimary,
-                        modifier = Modifier.padding(bottom = 8.dp),
-                        letterSpacing = (-0.5).sp
-                    )
-                    
-                    Text(
-                        text = "Join thousands of productive users",
-                        fontSize = 15.sp,
-                        color = TextSecondary,
-                        modifier = Modifier.padding(bottom = 32.dp)
-                    )
-                    
-                    // Full Name Field
-                    OutlinedTextField(
+                    // ERROR ALERT
+                    AnimatedVisibility(
+                        visible = errorMessage != null,
+                        enter = expandVertically() + fadeIn(),
+                        exit = shrinkVertically() + fadeOut()
+                    ) {
+                        errorMessage?.let { msg ->
+                            Surface(
+                                color = ErrorRed.copy(alpha = 0.1f),
+                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier.padding(bottom = 24.dp).fillMaxWidth()
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(12.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(Icons.Filled.Error, contentDescription = null, tint = ErrorRed, modifier = Modifier.size(20.dp))
+                                    Spacer(modifier = Modifier.width(12.dp))
+                                    Text(text = msg, color = ErrorRed, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                                }
+                            }
+                        }
+                    }
+
+                    // FULL NAME
+                    NoteHubTextField(
                         value = fullName,
-                        onValueChange = { fullName = it },
-                        label = { Text("Full Name") },
-                        placeholder = { Text("Enter your full name") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                        shape = RoundedCornerShape(8.dp),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = PrimaryBlue,
-                            unfocusedBorderColor = BorderLight,
-                            focusedLabelColor = PrimaryBlue,
-                            unfocusedLabelColor = TextSecondary,
-                            cursorColor = PrimaryBlue
-                        )
+                        onValueChange = { 
+                            fullName = it
+                            errorMessage = null
+                        },
+                        label = "Full Name",
+                        placeholder = "John Doe",
+                        leadingIcon = Icons.Filled.Person
                     )
-                    
+
                     Spacer(modifier = Modifier.height(16.dp))
-                    
-                    // Email Field
-                    OutlinedTextField(
+
+                    // EMAIL
+                    NoteHubTextField(
                         value = email,
-                        onValueChange = { email = it },
-                        label = { Text("Email Address") },
-                        placeholder = { Text("Enter your email") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(
-                            keyboardType = KeyboardType.Email
-                        ),
-                        shape = RoundedCornerShape(8.dp),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = PrimaryBlue,
-                            unfocusedBorderColor = BorderLight,
-                            focusedLabelColor = PrimaryBlue,
-                            unfocusedLabelColor = TextSecondary,
-                            cursorColor = PrimaryBlue
-                        )
+                        onValueChange = { 
+                            email = it
+                            errorMessage = null
+                        },
+                        label = "Email Address",
+                        placeholder = "john@example.com",
+                        leadingIcon = Icons.Filled.Email,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email)
                     )
-                    
+
                     Spacer(modifier = Modifier.height(16.dp))
-                    
-                    // Password Field
-                    OutlinedTextField(
+
+                    // PASSWORD
+                    NoteHubTextField(
                         value = password,
-                        onValueChange = { password = it },
-                        label = { Text("Password") },
-                        placeholder = { Text("Enter your password") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
+                        onValueChange = { 
+                            password = it
+                            errorMessage = null
+                        },
+                        label = "Password",
+                        placeholder = "••••••••",
+                        leadingIcon = Icons.Filled.Lock,
                         visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                        keyboardOptions = KeyboardOptions(
-                            keyboardType = KeyboardType.Password
-                        ),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                         trailingIcon = {
                             IconButton(onClick = { passwordVisible = !passwordVisible }) {
                                 Icon(
                                     imageVector = if (passwordVisible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff,
-                                    contentDescription = if (passwordVisible) "Hide password" else "Show password",
-                                    tint = IconPrimary
+                                    contentDescription = null,
+                                    tint = IconSecondary
                                 )
                             }
-                        },
-                        shape = RoundedCornerShape(8.dp),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = PrimaryBlue,
-                            unfocusedBorderColor = BorderLight,
-                            focusedLabelColor = PrimaryBlue,
-                            unfocusedLabelColor = TextSecondary,
-                            cursorColor = PrimaryBlue
-                        )
+                        }
                     )
-                    
+
                     Spacer(modifier = Modifier.height(16.dp))
-                    
-                    // Confirm Password Field
-                    OutlinedTextField(
+
+                    // CONFIRM PASSWORD
+                    NoteHubTextField(
                         value = confirmPassword,
-                        onValueChange = { confirmPassword = it },
-                        label = { Text("Confirm Password") },
-                        placeholder = { Text("Re-enter your password") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
+                        onValueChange = { 
+                            confirmPassword = it
+                            errorMessage = null
+                        },
+                        label = "Confirm Password",
+                        placeholder = "••••••••",
+                        leadingIcon = Icons.Filled.LockClock,
                         visualTransformation = if (confirmPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                        keyboardOptions = KeyboardOptions(
-                            keyboardType = KeyboardType.Password
-                        ),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                         trailingIcon = {
                             IconButton(onClick = { confirmPasswordVisible = !confirmPasswordVisible }) {
                                 Icon(
                                     imageVector = if (confirmPasswordVisible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff,
-                                    contentDescription = if (confirmPasswordVisible) "Hide password" else "Show password",
-                                    tint = IconPrimary
+                                    contentDescription = null,
+                                    tint = IconSecondary
                                 )
                             }
                         },
-                        shape = RoundedCornerShape(8.dp),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = PrimaryBlue,
-                            unfocusedBorderColor = BorderLight,
-                            focusedLabelColor = PrimaryBlue,
-                            unfocusedLabelColor = TextSecondary,
-                            cursorColor = PrimaryBlue
-                        ),
-                        isError = confirmPassword.isNotEmpty() && password != confirmPassword
+                        isError = confirmPassword.isNotEmpty() && password != confirmPassword,
+                        errorMessage = if (confirmPassword.isNotEmpty() && password != confirmPassword) "Passwords do not match" else null
                     )
-                    
-                    if (confirmPassword.isNotEmpty() && password != confirmPassword) {
-                        Text(
-                            text = "Passwords do not match",
-                            fontSize = 12.sp,
-                            color = ErrorRed,
-                            modifier = Modifier.padding(start = 16.dp, top = 4.dp)
-                        )
-                    }
-                    
+
                     Spacer(modifier = Modifier.height(32.dp))
-                    
-                    // Sign Up Button with Premium Design
+
+                    // SIGN UP BUTTON
                     Button(
                         onClick = {
-                            isLoading = true
-                            // Simulate sign up (in real app, validate and call API)
-                            onSignUpSuccess()
+                            if (password != confirmPassword) {
+                                errorMessage = "Passwords do not match"
+                                return@Button
+                            }
+                            scope.launch {
+                                isLoading = true
+                                errorMessage = null
+                                when (val result = AuthService.signUp(fullName, email, password)) {
+                                    is AuthResult.Success -> onSignUpSuccess()
+                                    is AuthResult.Error -> {
+                                        errorMessage = result.message
+                                        isLoading = false
+                                    }
+                                    else -> {}
+                                }
+                            }
                         },
                         modifier = Modifier
                             .fillMaxWidth()
@@ -263,54 +260,42 @@ fun SignUpScreen(
                         shape = RoundedCornerShape(16.dp),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = PrimaryBlue,
-                            contentColor = TextOnPrimary,
-                            disabledContainerColor = BorderLight,
-                            disabledContentColor = TextSecondary
+                            contentColor = Color.White
                         ),
-                        elevation = ButtonDefaults.buttonElevation(
-                            defaultElevation = 4.dp,
-                            pressedElevation = 2.dp
-                        ),
-                        enabled = fullName.isNotEmpty() && 
-                                 email.isNotEmpty() && 
-                                 password.isNotEmpty() && 
-                                 confirmPassword.isNotEmpty() &&
-                                 password == confirmPassword &&
-                                 !isLoading
+                        enabled = !isLoading
                     ) {
                         if (isLoading) {
                             CircularProgressIndicator(
                                 modifier = Modifier.size(24.dp),
-                                color = TextOnPrimary,
-                                strokeWidth = 2.5.dp
+                                color = Color.White,
+                                strokeWidth = 3.dp
                             )
                         } else {
                             Text(
                                 text = "Create Account",
                                 fontSize = 17.sp,
-                                fontWeight = FontWeight.Bold,
-                                letterSpacing = 0.5.sp
+                                fontWeight = FontWeight.Bold
                             )
                         }
                     }
                 }
             }
-            
-            // Login Link
+
+            // FOOTER
             Row(
-                modifier = Modifier.padding(top = 24.dp),
+                modifier = Modifier.padding(top = 32.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
                     text = "Already have an account? ",
-                    fontSize = 14.sp,
+                    fontSize = 15.sp,
                     color = TextSecondary
                 )
                 Text(
                     text = "Login",
-                    fontSize = 14.sp,
+                    fontSize = 15.sp,
                     color = PrimaryBlue,
-                    fontWeight = FontWeight.Bold,
+                    fontWeight = FontWeight.ExtraBold,
                     modifier = Modifier.clickable { onNavigateToLogin() }
                 )
             }
@@ -322,9 +307,6 @@ fun SignUpScreen(
 @Composable
 fun SignUpScreenPreview() {
     NoteHubTheme {
-        SignUpScreen(
-            onSignUpSuccess = {},
-            onNavigateToLogin = {}
-        )
+        SignUpScreen(onSignUpSuccess = {}, onNavigateToLogin = {})
     }
 }
