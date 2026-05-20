@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -8,6 +10,14 @@ android {
     namespace = "com.example.notehub"
     compileSdk = 36
 
+    // Read Google Maps API Key from local.properties
+    val properties = Properties()
+    val propertiesFile = rootProject.file("local.properties")
+    if (propertiesFile.exists()) {
+        propertiesFile.inputStream().use { properties.load(it) }
+    }
+    val mapsApiKey = properties.getProperty("MAPS_API_KEY") ?: "YOUR_MAPS_API_KEY"
+
     defaultConfig {
         applicationId = "com.example.notehub"
         minSdk = 24
@@ -16,6 +26,7 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        manifestPlaceholders["MAPS_API_KEY"] = mapsApiKey
     }
 
     buildTypes {
@@ -51,6 +62,18 @@ dependencies {
     implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.compose.material.icons.extended)
     implementation(libs.androidx.compose.animation.core.lint)
+
+    // Coil — async image loading for AsyncImage (profile photo from camera/gallery)
+    implementation("io.coil-kt:coil-compose:2.6.0")
+
+    // Location, Maps & Retrofit dependencies
+    implementation(libs.play.services.location)
+    implementation(libs.play.services.maps)
+    implementation(libs.maps.compose)
+    implementation(libs.retrofit.core)
+    implementation(libs.retrofit.converter.gson)
+    implementation(libs.okhttp.logging)
+
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

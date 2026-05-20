@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- Shares files in the app's internal cache directory (for camera temp images) -->
+    <cache-path
+        name="notehub_camera_images"
+        path="camera_photos/" />
+</paths>

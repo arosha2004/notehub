@@ -1,6 +1,13 @@
 package com.example.notehub.screens
-import androidx.compose.foundation.Image
+
+import android.Manifest
+import android.content.Context
+import android.net.Uri
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -15,7 +22,9 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -23,25 +32,50 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.FileProvider
+import coil.compose.AsyncImage
 import com.example.notehub.R
 import com.example.notehub.ui.theme.*
 import androidx.compose.ui.tooling.preview.Preview
 import kotlinx.coroutines.launch
+import java.io.File
+
+// Helper — creates a temp file in cache/camera_photos/ for the camera to write to
+private fun createImageFile(context: Context): File {
+    val dir = File(context.cacheDir, "camera_photos").also { it.mkdirs() }
+    return File.createTempFile("profile_", ".jpg", dir)
+}
+
+// Helper — converts the temp File into a content:// URI via FileProvider
+private fun getUriForFile(context: Context, file: File): Uri =
+    FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
 
 /**
  * SettingsScreen — full settings and profile management screen.
  *
  * @param onLogout  Called when the user taps "Log Out" — navigates back to LoginScreen
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
     onLogout: () -> Unit
 ) {
+    val context = LocalContext.current
+
     // ── STATE VARIABLES ────────────────────────────────────────────
 
     // Profile fields (pre-filled with current user data)
     var fullName by remember { mutableStateOf("Arosha") }
     var email by remember { mutableStateOf("Arosha@gmail.com") }
+
+    // Profile photo URI — null = show default icon drawable
+    var profilePhotoUri by remember { mutableStateOf<Uri?>(null) }
+
+    // Holds the temp file URI used when taking a photo with the camera
+    var cameraImageUri by remember { mutableStateOf<Uri?>(null) }
+
+    // Controls whether the "Camera or Gallery?" bottom sheet is visible
+    var showPhotoPickerSheet by remember { mutableStateOf(false) }
 
     // Password change fields (all start empty)
     var currentPassword by remember { mutableStateOf("") }
@@ -62,6 +96,45 @@ fun SettingsScreen(
 
     // Show logout confirmation dialog
     var showLogoutDialog by remember { mutableStateOf(false) }
+
+    // ── ACTIVITY RESULT LAUNCHERS ──────────────────────────────────
+
+    // 1. Gallery / Photo Picker — opens the system photo picker
+    val galleryLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        uri?.let { profilePhotoUri = it }
+    }
+
+    // 2. Camera — takes a photo and saves it to cameraImageUri
+    val cameraLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicture()
+    ) { success: Boolean ->
+        if (success) {
+            // TakePicture wrote the photo to cameraImageUri — assign it to show it
+            profilePhotoUri = cameraImageUri
+        }
+    }
+
+    // 3. Camera permission — asks for CAMERA permission before launching camera
+    val cameraPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted: Boolean ->
+        if (granted) {
+            // Permission granted — create temp file and launch camera
+            val tempFile = createImageFile(context)
+            val uri = getUriForFile(context, tempFile)
+            cameraImageUri = uri
+            cameraLauncher.launch(uri)
+        } else {
+            scope.launch {
+                snackbarHostState.showSnackbar(
+                    message = "Camera permission is required to take a photo.",
+                    duration = SnackbarDuration.Short
+                )
+            }
+        }
+    }
 
     // Logout confirmation dialog
     if (showLogoutDialog) {
@@ -152,38 +225,140 @@ fun SettingsScreen(
                     )
 
                     // ── PROFILE PICTURE ────────────────────────────────
-                    // Circular image using CircleShape clip modifier
-                    // ContentScale.Crop fills the circle without stretching
+                    // Tapping the photo or the camera badge opens the picker sheet
                     Box(
                         modifier = Modifier
-                            .size(100.dp)             // 100x100 circle
-                            .clip(CircleShape)         // clips to circle shape
-                            .background(MaterialTheme.colorScheme.secondary),
-                        contentAlignment = Alignment.Center
+                            .size(110.dp)
+                            .clickable { showPhotoPickerSheet = true },
+                        contentAlignment = Alignment.BottomEnd
                     ) {
-                        Image(
-                            painter = painterResource(R.drawable.icon),
-                            contentDescription = "",
-                            contentScale = ContentScale.Crop // fills the circle properly
-                        )
+                        // Circular avatar — shows selected photo or default icon
+                        Box(
+                            modifier = Modifier
+                                .size(110.dp)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.secondaryContainer)
+                                .border(3.dp, PrimaryBlue.copy(alpha = 0.4f), CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (profilePhotoUri != null) {
+                                // Show the selected/taken photo using Coil's AsyncImage
+                                AsyncImage(
+                                    model = profilePhotoUri,
+                                    contentDescription = "Profile Photo",
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            } else {
+                                // Fallback: show the default app icon
+                                androidx.compose.foundation.Image(
+                                    painter = painterResource(R.drawable.icon),
+                                    contentDescription = "Default Profile Photo",
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier.size(80.dp)
+                                )
+                            }
+                        }
+
+                        // Camera badge overlaid on bottom-right of avatar
+                        Box(
+                            modifier = Modifier
+                                .size(34.dp)
+                                .clip(CircleShape)
+                                .background(PrimaryBlue)
+                                .border(2.dp, MaterialTheme.colorScheme.surface, CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.PhotoCamera,
+                                contentDescription = "Change Photo",
+                                tint = Color.White,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
                     }
 
                     Spacer(modifier = Modifier.height(12.dp))
 
-                    // "Change Photo" text button — shows feedback snackbar
-                    TextButton(onClick = {
-                        scope.launch {
-                            snackbarHostState.showSnackbar(
-                                message = "Photo picker coming soon!",
-                                duration = SnackbarDuration.Short
-                            )
-                        }
-                    }) {
+                    // "Change Photo" text button — opens the picker sheet
+                    TextButton(onClick = { showPhotoPickerSheet = true }) {
                         Text(
                             text = "Change Photo",
                             color = MaterialTheme.colorScheme.primary,
                             fontWeight = FontWeight.Medium
                         )
+                    }
+
+                    // ── PHOTO SOURCE PICKER BOTTOM SHEET ───────────────
+                    if (showPhotoPickerSheet) {
+                        ModalBottomSheet(
+                            onDismissRequest = { showPhotoPickerSheet = false },
+                            containerColor = MaterialTheme.colorScheme.surface,
+                            shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 24.dp)
+                                    .padding(bottom = 40.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Text(
+                                    text = "Choose Photo Source",
+                                    fontSize = 18.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier.padding(vertical = 16.dp)
+                                )
+
+                                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
+                                Spacer(modifier = Modifier.height(16.dp))
+
+                                // ── CAMERA OPTION ────────────────────
+                                PhotoSourceOption(
+                                    icon = Icons.Filled.PhotoCamera,
+                                    label = "Take a Photo",
+                                    description = "Use your device camera",
+                                    color = PrimaryBlue,
+                                    onClick = {
+                                        showPhotoPickerSheet = false
+                                        // Request camera permission (handles both granted and denied)
+                                        cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+                                    }
+                                )
+
+                                Spacer(modifier = Modifier.height(12.dp))
+
+                                // ── GALLERY OPTION ───────────────────
+                                PhotoSourceOption(
+                                    icon = Icons.Filled.PhotoLibrary,
+                                    label = "Choose from Gallery",
+                                    description = "Pick an existing photo",
+                                    color = SuccessGreen,
+                                    onClick = {
+                                        showPhotoPickerSheet = false
+                                        galleryLauncher.launch("image/*")
+                                    }
+                                )
+
+                                Spacer(modifier = Modifier.height(12.dp))
+
+                                // ── REMOVE PHOTO OPTION ──────────────
+                                if (profilePhotoUri != null) {
+                                    PhotoSourceOption(
+                                        icon = Icons.Filled.Delete,
+                                        label = "Remove Photo",
+                                        description = "Revert to default avatar",
+                                        color = ErrorRed,
+                                        onClick = {
+                                            showPhotoPickerSheet = false
+                                            profilePhotoUri = null
+                                        }
+                                    )
+                                }
+                            }
+                        }
                     }
 
                     Spacer(modifier = Modifier.height(24.dp))
@@ -706,5 +881,81 @@ fun AboutItem(
 fun SettingsScreenPreview() {
     NoteHubTheme {
         SettingsScreen(onLogout = {})
+    }
+}
+
+// ─────────────────────────────────────────────────────────────
+// PhotoSourceOption — A clickable row shown in the photo picker sheet.
+// Layout: [Colored Icon Box]  [Label + Description]  [Chevron]
+//
+// @param icon         Icon to display (Camera, Gallery, or Delete)
+// @param label        Main action text (e.g. "Take a Photo")
+// @param description  Subtitle (e.g. "Use your device camera")
+// @param color        Accent colour for the icon box background
+// @param onClick      Action to perform when the row is tapped
+// ─────────────────────────────────────────────────────────────
+@Composable
+fun PhotoSourceOption(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+    description: String,
+    color: androidx.compose.ui.graphics.Color,
+    onClick: () -> Unit
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(16.dp),
+        color = color.copy(alpha = 0.08f),
+        tonalElevation = 0.dp
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Coloured icon box
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .background(color.copy(alpha = 0.15f), RoundedCornerShape(12.dp)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = label,
+                    tint = color,
+                    modifier = Modifier.size(26.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.width(16.dp))
+
+            // Label and description
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = label,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = description,
+                    fontSize = 13.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 2.dp)
+                )
+            }
+
+            // Chevron arrow
+            Icon(
+                imageVector = Icons.Filled.ChevronRight,
+                contentDescription = null,
+                tint = color,
+                modifier = Modifier.size(22.dp)
+            )
+        }
     }
 }
