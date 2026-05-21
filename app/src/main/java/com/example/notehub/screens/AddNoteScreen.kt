@@ -42,6 +42,7 @@ import com.google.maps.android.compose.MapUiSettings
 import com.google.maps.android.compose.Marker
 import com.google.maps.android.compose.rememberCameraPositionState
 import com.google.maps.android.compose.rememberMarkerState
+import androidx.compose.ui.tooling.preview.Preview
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -351,7 +352,7 @@ fun AddNoteScreen(
                                 scrollGesturesEnabled = false,
                                 zoomGesturesEnabled = false,
                                 tiltGesturesEnabled = false,
-                                rotateGesturesEnabled = false
+                                rotationGesturesEnabled = false
                             )
                             
                             GoogleMap(
