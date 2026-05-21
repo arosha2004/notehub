@@ -31,7 +31,6 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector?
         val drawerScreens = listOf(
             Dashboard,
             Notes,
-            LocationNotes,
             Uploads,
             Settings
         )

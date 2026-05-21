@@ -163,7 +163,7 @@ fun AppNavHost(
         composable(Screen.LocationNotes.route) {
             LocationNotesScreen(
                 onAddNoteClick = {
-                    navController.navigate(Screen.AddLocationNote.route)
+                    navController.navigate(Screen.AddNote.route)
                 },
                 onNoteClick = { noteId ->
                     navController.navigate("location_note_detail/$noteId")

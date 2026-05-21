@@ -1,12 +1,20 @@
 package com.example.notehub.screens
 
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material3.*
@@ -15,13 +23,25 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.notehub.data.Note
 import com.example.notehub.data.SampleData
 import com.example.notehub.ui.theme.*
-import androidx.compose.ui.tooling.preview.Preview
+import com.example.notehub.ui.viewmodel.LocationNotesViewModel
+import com.google.android.gms.maps.model.CameraPosition
+import com.google.android.gms.maps.model.LatLng
+import com.google.android.gms.maps.model.MapStyleOptions
+import com.google.maps.android.compose.GoogleMap
+import com.google.maps.android.compose.MapProperties
+import com.google.maps.android.compose.MapUiSettings
+import com.google.maps.android.compose.Marker
+import com.google.maps.android.compose.rememberCameraPositionState
+import com.google.maps.android.compose.rememberMarkerState
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -30,7 +50,8 @@ import java.util.Locale
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddNoteScreen(
-    onNavigateBack: () -> Unit
+    onNavigateBack: () -> Unit,
+    viewModel: LocationNotesViewModel = viewModel()
 ) {
     var title by remember { mutableStateOf("") }
     var content by remember { mutableStateOf("") }
@@ -38,7 +59,74 @@ fun AddNoteScreen(
     var selectedCategory by remember { mutableStateOf("Personal") }
     var isPinned by remember { mutableStateOf(false) }
 
+    // Location specific states
+    var isLocationBased by remember { mutableStateOf(false) }
+    var noteLatitude by remember { mutableStateOf(0.0) }
+    var noteLongitude by remember { mutableStateOf(0.0) }
+    var resolvedAddress by remember { mutableStateOf("") }
+    var locationFetched by remember { mutableStateOf(false) }
+
     val categories = listOf("Personal", "Work", "Study", "Other")
+
+    // Maps camera controller
+    val cameraPositionState = rememberCameraPositionState {
+        position = CameraPosition.fromLatLngZoom(LatLng(0.0, 0.0), 2f)
+    }
+
+    // Update map preview camera when location is captured
+    LaunchedEffect(noteLatitude, noteLongitude) {
+        if (locationFetched) {
+            cameraPositionState.position = CameraPosition.fromLatLngZoom(
+                LatLng(noteLatitude, noteLongitude),
+                16f
+            )
+        }
+    }
+
+    val context = LocalContext.current
+    var hasLocationPermission by remember {
+        mutableStateOf(
+            ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
+            ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+        )
+    }
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        hasLocationPermission = permissions.values.any { it }
+        if (hasLocationPermission) {
+            viewModel.requestCurrentGPSLocation { lat, lng, addr ->
+                noteLatitude = lat
+                noteLongitude = lng
+                resolvedAddress = addr
+                locationFetched = true
+            }
+        } else {
+            isLocationBased = false
+        }
+    }
+
+    // Automatically request location when toggled ON
+    LaunchedEffect(isLocationBased) {
+        if (isLocationBased) {
+            if (!hasLocationPermission) {
+                permissionLauncher.launch(
+                    arrayOf(
+                        Manifest.permission.ACCESS_FINE_LOCATION,
+                        Manifest.permission.ACCESS_COARSE_LOCATION
+                    )
+                )
+            } else if (!locationFetched) {
+                viewModel.requestCurrentGPSLocation { lat, lng, addr ->
+                    noteLatitude = lat
+                    noteLongitude = lng
+                    resolvedAddress = addr
+                    locationFetched = true
+                }
+            }
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -46,31 +134,45 @@ fun AddNoteScreen(
                 title = { Text("Add Note", fontWeight = FontWeight.SemiBold) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
                 actions = {
                     TextButton(
                         onClick = {
                             if (title.isNotBlank() && content.isNotBlank()) {
-                                val newNote = Note(
-                                    id = (SampleData.notes.maxOfOrNull { it.id } ?: 0) + 1,
-                                    title = title,
-                                    content = content,
-                                    date = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault()).format(Date()),
-                                    category = selectedCategory,
-                                    color = selectedColor
-                                )
-                                SampleData.notes.add(0, newNote)
-                                onNavigateBack()
+                                if (isLocationBased && locationFetched) {
+                                    val hexString = String.format("#%06X", 0xFFFFFF and selectedColor.value.toLong().toInt())
+                                    viewModel.saveLocationNote(
+                                        title = title,
+                                        description = content,
+                                        latitude = noteLatitude,
+                                        longitude = noteLongitude,
+                                        address = resolvedAddress,
+                                        category = selectedCategory,
+                                        colorHex = hexString,
+                                        onSuccess = onNavigateBack
+                                    )
+                                } else {
+                                    val newNote = Note(
+                                        id = (SampleData.notes.maxOfOrNull { it.id } ?: 0) + 1,
+                                        title = title,
+                                        content = content,
+                                        date = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault()).format(Date()),
+                                        category = selectedCategory,
+                                        color = selectedColor
+                                    )
+                                    SampleData.notes.add(0, newNote)
+                                    onNavigateBack()
+                                }
                             }
                         },
-                        enabled = title.isNotBlank() && content.isNotBlank()
+                        enabled = title.isNotBlank() && content.isNotBlank() && (!isLocationBased || (locationFetched && !viewModel.isFetchingLocationDetails))
                     ) {
                         Text(
                             "Save",
                             fontWeight = FontWeight.Bold,
-                            color = if (title.isNotBlank() && content.isNotBlank()) PrimaryBlue else TextTertiary
+                            color = if (title.isNotBlank() && content.isNotBlank() && (!isLocationBased || locationFetched)) PrimaryBlue else TextTertiary
                         )
                     }
                 },
@@ -86,6 +188,7 @@ fun AddNoteScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
+                .verticalScroll(rememberScrollState())
                 .padding(16.dp)
         ) {
             Text(
@@ -159,6 +262,123 @@ fun AddNoteScreen(
                 }
             }
 
+            // ── LOCATION TOGGLE ────────────────────────────────────────
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Filled.LocationOn,
+                        contentDescription = null,
+                        tint = if (isLocationBased) PrimaryBlue else TextTertiary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text(
+                        text = "Location-based Note",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+                Switch(
+                    checked = isLocationBased,
+                    onCheckedChange = { isLocationBased = it },
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = BackgroundWhite,
+                        checkedTrackColor = PrimaryBlue
+                    )
+                )
+            }
+
+            // ── LOCATION DETAILS & MAP PREVIEW ─────────────────────────
+            if (isLocationBased) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 16.dp)
+                ) {
+                    if (viewModel.isFetchingLocationDetails) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(vertical = 8.dp)
+                        ) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(20.dp),
+                                color = PrimaryBlue,
+                                strokeWidth = 2.dp
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text(
+                                text = "Fetching GPS location...",
+                                fontSize = 14.sp,
+                                color = TextSecondary
+                            )
+                        }
+                    } else if (locationFetched) {
+                        Text(
+                            text = "Address:",
+                            fontSize = 12.sp,
+                            color = TextSecondary,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = resolvedAddress.ifEmpty { "Lat: $noteLatitude, Lng: $noteLongitude" },
+                            fontSize = 14.sp,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
+                        
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(160.dp)
+                                .border(1.dp, BorderLight.copy(alpha = 0.15f), RoundedCornerShape(12.dp)),
+                            shape = RoundedCornerShape(12.dp),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                        ) {
+                            val mapProperties = MapProperties(
+                                isMyLocationEnabled = true,
+                                mapStyleOptions = if (ThemeManager.isDarkMode) MapStyleOptions(googleMapDarkStyle) else null
+                            )
+                            val mapUiSettings = MapUiSettings(
+                                zoomControlsEnabled = false,
+                                myLocationButtonEnabled = false,
+                                scrollGesturesEnabled = false,
+                                zoomGesturesEnabled = false,
+                                tiltGesturesEnabled = false,
+                                rotateGesturesEnabled = false
+                            )
+                            
+                            GoogleMap(
+                                modifier = Modifier.fillMaxSize(),
+                                cameraPositionState = cameraPositionState,
+                                properties = mapProperties,
+                                uiSettings = mapUiSettings
+                            ) {
+                                Marker(
+                                    state = rememberMarkerState(position = LatLng(noteLatitude, noteLongitude)),
+                                    title = "Note Location",
+                                    snippet = resolvedAddress
+                                )
+                            }
+                        }
+                    } else {
+                        Text(
+                            text = "Failed to fetch GPS location. Ensure location services are enabled.",
+                            fontSize = 13.sp,
+                            color = ErrorRed,
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
+                    }
+                }
+            }
+
+            // ── PIN TO TOP TOGGLE ──────────────────────────────────────
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -213,7 +433,7 @@ fun AddNoteScreen(
                 label = { Text("Content") },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .weight(1f),
+                    .height(200.dp),
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = selectedColor,
                     unfocusedBorderColor = BorderMedium,
