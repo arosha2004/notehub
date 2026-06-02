@@ -1,5 +1,10 @@
 package com.example.notehub.screens
 
+import android.content.Context
+import android.net.Uri
+import android.provider.OpenableColumns
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -14,32 +19,67 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.notehub.ui.theme.*
 import androidx.compose.ui.tooling.preview.Preview
+import com.example.notehub.domain.model.Upload
+import com.example.notehub.ui.viewmodel.LocationNotesViewModel
+import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
-data class Upload(
-    val id: Int,
-    val fileName: String,
-    val fileType: String,
-    val fileSize: String,
-    val uploadDate: String,
-    val icon: androidx.compose.ui.graphics.vector.ImageVector
-)
+/**
+ * Helper to query file name and size from Uri
+ */
+private fun queryUriMetadata(context: Context, uri: Uri): Pair<String, Long> {
+    var name = "unknown"
+    var size = 0L
+    try {
+        context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+            val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+            val sizeIndex = cursor.getColumnIndex(OpenableColumns.SIZE)
+            if (cursor.moveToFirst()) {
+                if (nameIndex != -1) {
+                    name = cursor.getString(nameIndex)
+                }
+                if (sizeIndex != -1) {
+                    size = cursor.getLong(sizeIndex)
+                }
+            }
+        }
+    } catch (e: Exception) {
+        // Fallback
+    }
+    if (name == "unknown") {
+        name = uri.lastPathSegment ?: "file"
+    }
+    return Pair(name, size)
+}
+
+/**
+ * Format file size into human readable string
+ */
+private fun formatFileSize(bytes: Long): String {
+    if (bytes <= 0) return "0 B"
+    val units = arrayOf("B", "KB", "MB", "GB")
+    val digitGroups = (Math.log10(bytes.toDouble()) / Math.log10(1024.0)).toInt()
+    return String.format(Locale.getDefault(), "%.1f %s", bytes / Math.pow(1024.0, digitGroups.toDouble()), units[digitGroups])
+}
 
 /**
  * UploadsScreen — Shows the list of uploaded files.
  */
 @Composable
-fun UploadsScreen() {
-    // Mutable list so uploads can be added/removed dynamically
-    val uploads = remember {
-        mutableStateListOf<Upload>()
-    }
+fun UploadsScreen(
+    viewModel: LocationNotesViewModel = viewModel()
+) {
+    val uploads = viewModel.uploads
 
     // State for filter chip selection
     var selectedFilter by remember { mutableStateOf("All Files") }
@@ -48,6 +88,43 @@ fun UploadsScreen() {
     // Snackbar host for user feedback
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+
+    // Set up file picker launcher to pick files from storage
+    val filePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            val (name, size) = queryUriMetadata(context, uri)
+            val extension = name.substringAfterLast('.', "").uppercase()
+            val isImage = extension in listOf("PNG", "JPG", "JPEG", "GIF", "WEBP")
+            val isDoc = extension in listOf("PDF", "DOC", "DOCX", "TXT", "XLS", "XLSX", "PPT", "PPTX")
+            val fileType = if (extension.isNotEmpty()) extension else "FILE"
+            val icon = if (isImage) Icons.Filled.Image else if (isDoc) Icons.Filled.Description else Icons.Filled.AttachFile
+            
+            val formattedDate = SimpleDateFormat("MMM d, yyyy", Locale.getDefault()).format(Date())
+            val formattedSize = formatFileSize(size)
+            
+            val newId = (uploads.maxOfOrNull { it.id } ?: 0) + 1
+            val newUpload = Upload(
+                id = newId,
+                fileName = name,
+                fileType = fileType,
+                fileSize = formattedSize,
+                uploadDate = formattedDate,
+                icon = icon,
+                uri = uri
+            )
+            uploads.add(newUpload)
+            
+            scope.launch {
+                snackbarHostState.showSnackbar(
+                    message = "File \"$name\" uploaded successfully!",
+                    duration = SnackbarDuration.Short
+                )
+            }
+        }
+    }
 
     // Scaffold provides the screen layout + floating action button placement
     Scaffold(
@@ -56,25 +133,7 @@ fun UploadsScreen() {
         floatingActionButton = {
             FloatingActionButton(
                 onClick = {
-                    // Add a sample upload to demonstrate the feature
-                    val newId = (uploads.maxOfOrNull { it.id } ?: 0) + 1
-                    val isImage = (1..2).random() == 1
-                    uploads.add(
-                        Upload(
-                            id = newId,
-                            fileName = if (isImage) "Photo_$newId.jpg" else "Document_$newId.pdf",
-                            fileType = if (isImage) "JPG" else "PDF",
-                            fileSize = "${(100..5000).random()} KB",
-                            uploadDate = "May 7, 2026",
-                            icon = if (isImage) Icons.Filled.Image else Icons.Filled.Description
-                        )
-                    )
-                    scope.launch {
-                        snackbarHostState.showSnackbar(
-                            message = "File uploaded successfully!",
-                            duration = SnackbarDuration.Short
-                        )
-                    }
+                    filePickerLauncher.launch("*/*")
                 },
                 containerColor = PrimaryBlue,
                 contentColor = Color.White

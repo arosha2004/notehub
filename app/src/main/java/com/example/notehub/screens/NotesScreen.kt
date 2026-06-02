@@ -23,8 +23,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.notehub.data.Note
-import com.example.notehub.data.SampleData
 import com.example.notehub.ui.theme.*
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.notehub.ui.viewmodel.LocationNotesViewModel
+import com.example.notehub.domain.model.LocationNote
 import kotlinx.coroutines.launch
 
 /**
@@ -37,12 +39,27 @@ import kotlinx.coroutines.launch
 @Composable
 fun NotesScreen(
     onAddNoteClick: () -> Unit,
-    onNoteClick: (Int) -> Unit = {}
+    onNoteClick: (Int) -> Unit = {},
+    viewModel: LocationNotesViewModel = viewModel()
 ) {
-    // State management for the list of notes
-    val notes = remember { mutableStateListOf(*SampleData.notes.toTypedArray()) }
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+
+    // Trigger fetching notes from the PHP backend on launch
+    LaunchedEffect(Unit) {
+        viewModel.fetchNotes()
+    }
+
+    val notesList = viewModel.notes.map { note ->
+        Note(
+            id = note.id,
+            title = note.title,
+            content = note.description,
+            date = note.date,
+            category = note.category,
+            color = parseHexColor(note.colorHex)
+        )
+    }
 
     Scaffold(
         floatingActionButton = {
@@ -73,34 +90,33 @@ fun NotesScreen(
             )
             
             Text(
-                text = "${notes.size} items stored securely",
+                text = "${notesList.size} items stored securely",
                 fontSize = 14.sp,
                 color = TextSecondary,
                 modifier = Modifier.padding(bottom = 24.dp)
             )
 
-            if (notes.isEmpty()) {
+            if (viewModel.isLoading) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(color = PrimaryBlue)
+                }
+            } else if (notesList.isEmpty()) {
                 EmptyNotesView()
             } else {
                 LazyColumn(
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                     contentPadding = PaddingValues(bottom = 80.dp) // extra space for FAB
                 ) {
-                    items(notes, key = { it.id }) { note ->
+                    items(notesList, key = { it.id }) { note ->
                         NoteCard(
                             note = note,
                             onClick = { onNoteClick(note.id) },
                             onDelete = {
-                                val index = notes.indexOf(note)
-                                notes.remove(note)
                                 scope.launch {
-                                    val result = snackbarHostState.showSnackbar(
-                                        message = "Note deleted",
-                                        actionLabel = "Undo",
-                                        duration = SnackbarDuration.Short
-                                    )
-                                    if (result == SnackbarResult.ActionPerformed) {
-                                        notes.add(index, note)
+                                    viewModel.deleteLocationNote(note.id) {
+                                        scope.launch {
+                                            snackbarHostState.showSnackbar("Note deleted")
+                                        }
                                     }
                                 }
                             }

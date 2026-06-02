@@ -142,8 +142,8 @@ fun AddNoteScreen(
                     TextButton(
                         onClick = {
                             if (title.isNotBlank() && content.isNotBlank()) {
+                                val hexString = String.format("#%06X", 0xFFFFFF and selectedColor.value.toLong().toInt())
                                 if (isLocationBased && locationFetched) {
-                                    val hexString = String.format("#%06X", 0xFFFFFF and selectedColor.value.toLong().toInt())
                                     viewModel.saveLocationNote(
                                         title = title,
                                         description = content,
@@ -155,16 +155,16 @@ fun AddNoteScreen(
                                         onSuccess = onNavigateBack
                                     )
                                 } else {
-                                    val newNote = Note(
-                                        id = (SampleData.notes.maxOfOrNull { it.id } ?: 0) + 1,
+                                    viewModel.saveLocationNote(
                                         title = title,
-                                        content = content,
-                                        date = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault()).format(Date()),
+                                        description = content,
+                                        latitude = 0.0,
+                                        longitude = 0.0,
+                                        address = "",
                                         category = selectedCategory,
-                                        color = selectedColor
+                                        colorHex = hexString,
+                                        onSuccess = onNavigateBack
                                     )
-                                    SampleData.notes.add(0, newNote)
-                                    onNavigateBack()
                                 }
                             }
                         },

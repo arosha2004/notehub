@@ -18,6 +18,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -57,6 +58,7 @@ import kotlinx.coroutines.launch
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LocationNotesScreen(
+    onNavigateBack: () -> Unit,
     onAddNoteClick: () -> Unit,
     onNoteClick: (Int) -> Unit,
     viewModel: LocationNotesViewModel = viewModel()
@@ -95,6 +97,20 @@ fun LocationNotesScreen(
     }
 
     Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Location Notes", fontWeight = FontWeight.SemiBold) },
+                navigationIcon = {
+                    IconButton(onClick = onNavigateBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    titleContentColor = MaterialTheme.colorScheme.onSurface
+                )
+            )
+        },
         floatingActionButton = {
             if (hasLocationPermission) {
                 FloatingActionButton(

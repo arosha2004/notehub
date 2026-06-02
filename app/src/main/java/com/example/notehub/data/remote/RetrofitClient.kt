@@ -16,10 +16,11 @@ object RetrofitClient {
 
     // Default base URL for standard Android emulator accessing localhost on the development machine.
     // Replace with staging/production server IP if deploying physically.
-    private const val BASE_URL = "http://10.0.2.2:8000/api/"
+    private const val BASE_URL = "http://10.0.2.2/NOTEKEEPER/api/"
 
     /**
-     * Interceptor that fetches JWT from TokenManager and adds it to the HTTP Headers.
+     * Interceptor that fetches PHP session cookies from TokenManager and adds them to headers,
+     * and captures Set-Cookie headers from server responses.
      */
     private val authInterceptor = Interceptor { chain ->
         val originalRequest = chain.request()
@@ -30,10 +31,21 @@ object RetrofitClient {
             .header("Accept", "application/json")
 
         if (!token.isNullOrEmpty()) {
-            requestBuilder.header("Authorization", "Bearer $token")
+            requestBuilder.header("Cookie", token)
         }
 
-        chain.proceed(requestBuilder.build())
+        val response = chain.proceed(requestBuilder.build())
+
+        // Extract and cache PHPSESSID cookie from Response Headers
+        val cookies = response.headers("Set-Cookie")
+        for (cookie in cookies) {
+            if (cookie.contains("PHPSESSID")) {
+                val sessionCookie = cookie.split(";")[0]
+                TokenManager.saveToken(sessionCookie)
+            }
+        }
+
+        response
     }
 
     /**

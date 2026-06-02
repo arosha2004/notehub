@@ -88,13 +88,18 @@ class LocationNotesRepositoryImpl : LocationNotesRepository {
 
     override suspend fun getNotes(): Result<List<LocationNote>> = withContext(Dispatchers.IO) {
         try {
-            Log.d(tag, "Attempting to fetch notes from Laravel backend...")
-            val notesDto = RetrofitClient.api.getNotes()
-            val domainNotes = notesDto.map { it.toDomain() }
-            Log.d(tag, "Successfully loaded ${domainNotes.size} notes from API.")
-            Result.success(domainNotes)
+            Log.d(tag, "Attempting to fetch notes from PHP backend...")
+            val apiResponse = RetrofitClient.api.getNotes()
+            if (apiResponse.success && apiResponse.data != null) {
+                val domainNotes = apiResponse.data.notes.map { it.toDomain() }
+                Log.d(tag, "Successfully loaded ${domainNotes.size} notes from API.")
+                Result.success(domainNotes)
+            } else {
+                Log.w(tag, "API returned failure: ${apiResponse.message}")
+                Result.success(ArrayList(localNotes))
+            }
         } catch (e: Exception) {
-            Log.w(tag, "Laravel JWT Backend unreachable. Falling back to local mock storage. Error: ${e.localizedMessage}")
+            Log.w(tag, "PHP Backend unreachable. Falling back to local mock storage. Error: ${e.localizedMessage}")
             Result.success(ArrayList(localNotes))
         }
     }
@@ -124,16 +129,22 @@ class LocationNotesRepositoryImpl : LocationNotesRepository {
         )
 
         try {
-            Log.d(tag, "Attempting to sync new note to Laravel backend...")
-            val responseDto = RetrofitClient.api.createNote(newNote.toDto())
-            val savedNote = responseDto.toDomain()
-            
-            // Sync with local memory cache just in case
-            localNotes.add(0, savedNote)
-            Log.d(tag, "Successfully synced note to API with ID: ${savedNote.id}")
-            Result.success(savedNote)
+            Log.d(tag, "Attempting to sync new note to PHP backend...")
+            val apiResponse = RetrofitClient.api.createNote(newNote.toDto())
+            if (apiResponse.success && apiResponse.data != null) {
+                val savedNote = apiResponse.data.note.toDomain()
+                
+                // Sync with local memory cache just in case
+                localNotes.add(0, savedNote)
+                Log.d(tag, "Successfully synced note to API with ID: ${savedNote.id}")
+                Result.success(savedNote)
+            } else {
+                Log.w(tag, "API error on create: ${apiResponse.message}")
+                localNotes.add(0, newNote)
+                Result.success(newNote)
+            }
         } catch (e: Exception) {
-            Log.w(tag, "Laravel backend offline. Saving note locally. Error: ${e.localizedMessage}")
+            Log.w(tag, "PHP backend offline. Saving note locally. Error: ${e.localizedMessage}")
             localNotes.add(0, newNote)
             Result.success(newNote)
         }
@@ -141,15 +152,15 @@ class LocationNotesRepositoryImpl : LocationNotesRepository {
 
     override suspend fun deleteNote(id: Int): Result<Unit> = withContext(Dispatchers.IO) {
         try {
-            Log.d(tag, "Attempting to delete note $id from Laravel backend...")
+            Log.d(tag, "Attempting to delete note $id from PHP backend...")
             val response = RetrofitClient.api.deleteNote(id)
-            if (response.isSuccessful) {
+            if (response.isSuccessful && response.body()?.success == true) {
                 Log.d(tag, "Successfully deleted note $id from API.")
             } else {
-                Log.w(tag, "API responded with error code: ${response.code()}")
+                Log.w(tag, "API responded with error: ${response.body()?.message ?: response.code()}")
             }
         } catch (e: Exception) {
-            Log.w(tag, "Laravel backend offline. Deleting locally. Error: ${e.localizedMessage}")
+            Log.w(tag, "PHP backend offline. Deleting locally. Error: ${e.localizedMessage}")
         }
         
         // Remove locally anyway
@@ -163,11 +174,27 @@ class LocationNotesRepositoryImpl : LocationNotesRepository {
         radiusInKm: Double
     ): Result<List<LocationNote>> = withContext(Dispatchers.IO) {
         try {
-            Log.d(tag, "Attempting to fetch nearby notes from Laravel backend...")
-            val notesDto = RetrofitClient.api.getNearbyNotes(latitude, longitude, radiusInKm)
-            Result.success(notesDto.map { it.toDomain() })
+            Log.d(tag, "Attempting to fetch nearby notes from PHP backend...")
+            // We use the regular list endpoint and filter locally by proximity to maintain accuracy
+            val apiResponse = RetrofitClient.api.getNotes()
+            if (apiResponse.success && apiResponse.data != null) {
+                val allNotes = apiResponse.data.notes.map { it.toDomain() }
+                val filtered = allNotes.filter { note ->
+                    val results = FloatArray(1)
+                    Location.distanceBetween(
+                        latitude, longitude,
+                        note.latitude, note.longitude,
+                        results
+                    )
+                    val distanceInKm = results[0] / 1000.0
+                    distanceInKm <= radiusInKm
+                }
+                Result.success(filtered)
+            } else {
+                Result.success(emptyList())
+            }
         } catch (e: Exception) {
-            Log.w(tag, "Laravel backend offline. Filtering local notes by radius. Error: ${e.localizedMessage}")
+            Log.w(tag, "PHP backend offline. Filtering local notes by radius. Error: ${e.localizedMessage}")
             
             val filtered = localNotes.filter { note ->
                 val results = FloatArray(1)

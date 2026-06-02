@@ -15,6 +15,10 @@ import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Upload
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.notehub.ui.viewmodel.LocationNotesViewModel
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
@@ -36,8 +40,22 @@ import com.example.notehub.ui.theme.*
 fun DashboardScreen(
     onNavigateToAddNote: () -> Unit = {},
     onNavigateToUploads: () -> Unit = {},
-    onNavigateToLocationNotes: () -> Unit = {}
+    onNavigateToLocationNotes: () -> Unit = {},
+    viewModel: LocationNotesViewModel = viewModel()
 ) {
+    // Trigger fetching notes from the PHP backend on launch
+    LaunchedEffect(Unit) {
+        viewModel.fetchNotes()
+    }
+
+    val totalNotes = viewModel.notes.size
+    val currentYearMonth = remember {
+        java.text.SimpleDateFormat("yyyy-MM", java.util.Locale.getDefault()).format(java.util.Date())
+    }
+    val notesThisMonth = viewModel.notes.count { it.date.startsWith(currentYearMonth) }
+    val categoriesCount = viewModel.notes.map { it.category }.distinct().size
+    val uploadsCount = viewModel.uploads.size
+
     BoxWithConstraints(
         modifier = Modifier
             .fillMaxSize()
@@ -58,14 +76,24 @@ fun DashboardScreen(
                         WelcomeCard(onCreateNoteClick = onNavigateToAddNote)
                     }
                     Box(modifier = Modifier.weight(1f)) {
-                        StatsGrid()
+                        StatsGrid(
+                            totalNotes = totalNotes,
+                            notesThisMonth = notesThisMonth,
+                            categoriesCount = categoriesCount,
+                            uploadsCount = uploadsCount
+                        )
                     }
                 }
             } else {
                 // PORTRAIT LAYOUT: Stacked vertically
                 WelcomeCard(onCreateNoteClick = onNavigateToAddNote)
                 Spacer(modifier = Modifier.height(24.dp))
-                StatsGrid()
+                StatsGrid(
+                    totalNotes = totalNotes,
+                    notesThisMonth = notesThisMonth,
+                    categoriesCount = categoriesCount,
+                    uploadsCount = uploadsCount
+                )
             }
 
             Spacer(modifier = Modifier.height(24.dp))
@@ -158,7 +186,12 @@ fun WelcomeCard(
 }
 
 @Composable
-fun StatsGrid() {
+fun StatsGrid(
+    totalNotes: Int,
+    notesThisMonth: Int,
+    categoriesCount: Int,
+    uploadsCount: Int
+) {
     Column {
         Text(
             text = "Overview",
@@ -174,7 +207,7 @@ fun StatsGrid() {
         ) {
             StatCard(
                 title = "Total Notes",
-                value = "12",
+                value = totalNotes.toString(),
                 icon = Icons.AutoMirrored.Filled.Note,
                 color = PrimaryBlue,
                 modifier = Modifier.weight(1f)
@@ -182,7 +215,7 @@ fun StatsGrid() {
 
             StatCard(
                 title = "This Month",
-                value = "5",
+                value = notesThisMonth.toString(),
                 icon = Icons.Filled.Schedule,
                 color = SuccessGreen,
                 modifier = Modifier.weight(1f)
@@ -197,7 +230,7 @@ fun StatsGrid() {
         ) {
             StatCard(
                 title = "Categories",
-                value = "8",
+                value = categoriesCount.toString(),
                 icon = Icons.Filled.Folder,
                 color = WarningYellow,
                 modifier = Modifier.weight(1f)
@@ -205,7 +238,7 @@ fun StatsGrid() {
 
             StatCard(
                 title = "Uploads",
-                value = "0",
+                value = uploadsCount.toString(),
                 icon = Icons.Filled.Upload,
                 color = InfoBlue,
                 modifier = Modifier.weight(1f)

@@ -38,7 +38,8 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector?
         fun shouldShowDrawer(route: String?): Boolean {
             return route != Login.route && route != SignUp.route && 
                    route != AddNote.route && route?.startsWith("note_detail") != true &&
-                   route != AddLocationNote.route && route?.startsWith("location_note_detail") != true
+                   route != AddLocationNote.route && route?.startsWith("location_note_detail") != true &&
+                   route != LocationNotes.route
         }
     }
 }

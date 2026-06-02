@@ -23,6 +23,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.IOException
 import java.util.Locale
+import com.example.notehub.domain.model.Upload
+import androidx.compose.runtime.mutableStateListOf
 
 /**
  * LocationNotesViewModel — Orchestrates coordinates capture, reverse-geocoding addresses,
@@ -36,6 +38,9 @@ class LocationNotesViewModel(application: Application) : AndroidViewModel(applic
     private val fusedLocationClient = LocationServices.getFusedLocationProviderClient(application)
 
     // ── STATE VARIABLES ───────────────────────────────────────────
+    
+    // Shared Uploads list
+    val uploads = mutableStateListOf<Upload>()
     
     // Core Notes list
     var notes by mutableStateOf<List<LocationNote>>(emptyList())

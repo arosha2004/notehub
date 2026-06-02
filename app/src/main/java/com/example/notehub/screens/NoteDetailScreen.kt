@@ -19,8 +19,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.notehub.data.SampleData
+import com.example.notehub.data.Note
 import com.example.notehub.ui.theme.*
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.notehub.ui.viewmodel.LocationNotesViewModel
 import kotlinx.coroutines.launch
 
 /**
@@ -34,10 +36,20 @@ import kotlinx.coroutines.launch
 @Composable
 fun NoteDetailScreen(
     noteId: Int,
-    onNavigateBack: () -> Unit
+    onNavigateBack: () -> Unit,
+    viewModel: LocationNotesViewModel = viewModel()
 ) {
-    // Find the note in our sample data
-    val note = SampleData.notes.find { it.id == noteId }
+    // Find the note in our dynamic ViewModel notes list
+    val note = viewModel.notes.find { it.id == noteId }?.let { locNote ->
+        Note(
+            id = locNote.id,
+            title = locNote.title,
+            content = locNote.description,
+            date = locNote.date,
+            category = locNote.category,
+            color = parseHexColor(locNote.colorHex)
+        )
+    }
 
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()

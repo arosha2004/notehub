@@ -5,11 +5,15 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.notehub.ui.viewmodel.LocationNotesViewModel
 import com.example.notehub.navigation.Screen
 import com.example.notehub.screens.*
 import com.example.notehub.ui.theme.*
@@ -21,6 +25,7 @@ fun MainScreen() {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
     val shouldShowNavigation = Screen.shouldShowDrawer(currentRoute)
+    val sharedViewModel: LocationNotesViewModel = viewModel()
 
     Scaffold(
         topBar = {
@@ -28,9 +33,20 @@ fun MainScreen() {
                 TopAppBar(
                     title = {
                         Text(
-                            text = Screen.drawerScreens.find { it.route == currentRoute }?.title ?: "NoteHub",
+                            text = Screen.drawerScreens.find { it.route == currentRoute }?.title ?: "Location Notes",
                             fontWeight = FontWeight.SemiBold
                         )
+                    },
+                    navigationIcon = {
+                        val isPrimaryScreen = Screen.drawerScreens.any { it.route == currentRoute }
+                        if (!isPrimaryScreen && currentRoute != null) {
+                            IconButton(onClick = { navController.popBackStack() }) {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                    contentDescription = "Back"
+                                )
+                            }
+                        }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
                         containerColor = MaterialTheme.colorScheme.surface,
@@ -82,6 +98,7 @@ fun MainScreen() {
     ) { paddingValues ->
         AppNavHost(
             navController = navController,
+            sharedViewModel = sharedViewModel,
             modifier = Modifier.padding(paddingValues)
         )
     }
@@ -90,6 +107,7 @@ fun MainScreen() {
 @Composable
 fun AppNavHost(
     navController: NavHostController,
+    sharedViewModel: LocationNotesViewModel,
     modifier: Modifier = Modifier
 ) {
     NavHost(
@@ -127,7 +145,8 @@ fun AppNavHost(
             DashboardScreen(
                 onNavigateToAddNote = { navController.navigate(Screen.AddNote.route) },
                 onNavigateToUploads = { navController.navigate(Screen.Uploads.route) },
-                onNavigateToLocationNotes = { navController.navigate(Screen.LocationNotes.route) }
+                onNavigateToLocationNotes = { navController.navigate(Screen.LocationNotes.route) },
+                viewModel = sharedViewModel
             )
         }
 
@@ -138,7 +157,8 @@ fun AppNavHost(
                 },
                 onNoteClick = { noteId ->
                     navController.navigate("note_detail/$noteId")
-                }
+                },
+                viewModel = sharedViewModel
             )
         }
 
@@ -148,7 +168,8 @@ fun AppNavHost(
                 noteId = noteId,
                 onNavigateBack = {
                     navController.popBackStack()
-                }
+                },
+                viewModel = sharedViewModel
             )
         }
 
@@ -156,18 +177,23 @@ fun AppNavHost(
             AddNoteScreen(
                 onNavigateBack = {
                     navController.popBackStack()
-                }
+                },
+                viewModel = sharedViewModel
             )
         }
 
         composable(Screen.LocationNotes.route) {
             LocationNotesScreen(
+                onNavigateBack = {
+                    navController.popBackStack()
+                },
                 onAddNoteClick = {
-                    navController.navigate(Screen.AddNote.route)
+                    navController.navigate(Screen.AddLocationNote.route)
                 },
                 onNoteClick = { noteId ->
                     navController.navigate("location_note_detail/$noteId")
-                }
+                },
+                viewModel = sharedViewModel
             )
         }
 
@@ -175,7 +201,8 @@ fun AppNavHost(
             AddLocationNoteScreen(
                 onNavigateBack = {
                     navController.popBackStack()
-                }
+                },
+                viewModel = sharedViewModel
             )
         }
 
@@ -185,12 +212,15 @@ fun AppNavHost(
                 noteId = noteId,
                 onNavigateBack = {
                     navController.popBackStack()
-                }
+                },
+                viewModel = sharedViewModel
             )
         }
 
         composable(Screen.Uploads.route) {
-            UploadsScreen()
+            UploadsScreen(
+                viewModel = sharedViewModel
+            )
         }
 
         composable(Screen.Settings.route) {
