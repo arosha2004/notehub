@@ -12,5 +12,7 @@ data class LocationNote(
     val address: String,
     val date: String,
     val category: String,
-    val colorHex: String
+    val colorHex: String,
+    val isSecured: Boolean = false,
+    val securityPassword: String? = null
 )

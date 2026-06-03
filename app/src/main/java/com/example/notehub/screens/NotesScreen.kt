@@ -23,6 +23,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.notehub.data.Note
+import androidx.compose.ui.platform.LocalContext
+import com.example.notehub.ui.security.BiometricHelper
 import com.example.notehub.ui.theme.*
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.notehub.ui.viewmodel.LocationNotesViewModel
@@ -44,6 +46,13 @@ fun NotesScreen(
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+
+    // Security auth states
+    var activeAuthNoteId by remember { mutableStateOf<Int?>(null) }
+    var showPasswordDialog by remember { mutableStateOf(false) }
+    var passwordInput by remember { mutableStateOf("") }
+    var passwordError by remember { mutableStateOf(false) }
 
     // Trigger fetching notes from the PHP backend on launch
     LaunchedEffect(Unit) {
@@ -51,10 +60,12 @@ fun NotesScreen(
     }
 
     val notesList = viewModel.notes.map { note ->
+        val title = if (note.isSecured) "🔒 Secure Note" else note.title
+        val content = if (note.isSecured) "Content is locked. Tap to authenticate." else note.description
         Note(
             id = note.id,
-            title = note.title,
-            content = note.description,
+            title = title,
+            content = content,
             date = note.date,
             category = note.category,
             color = parseHexColor(note.colorHex)
@@ -110,7 +121,30 @@ fun NotesScreen(
                     items(notesList, key = { it.id }) { note ->
                         NoteCard(
                             note = note,
-                            onClick = { onNoteClick(note.id) },
+                            onClick = {
+                                val originalNote = viewModel.notes.find { it.id == note.id }
+                                if (originalNote?.isSecured == true) {
+                                    activeAuthNoteId = note.id
+                                    passwordInput = ""
+                                    passwordError = false
+                                    val activity = context as? androidx.fragment.app.FragmentActivity
+                                    if (activity != null && BiometricHelper.isBiometricAvailable(activity)) {
+                                        BiometricHelper.showBiometricPrompt(
+                                            activity = activity,
+                                            onSuccess = {
+                                                onNoteClick(note.id)
+                                            },
+                                            onError = { error ->
+                                                showPasswordDialog = true
+                                            }
+                                        )
+                                    } else {
+                                        showPasswordDialog = true
+                                    }
+                                } else {
+                                    onNoteClick(note.id)
+                                }
+                            },
                             onDelete = {
                                 scope.launch {
                                     viewModel.deleteLocationNote(note.id) {
@@ -123,6 +157,65 @@ fun NotesScreen(
                         )
                     }
                 }
+            }
+
+            if (showPasswordDialog && activeAuthNoteId != null) {
+                val noteToAuth = viewModel.notes.find { it.id == activeAuthNoteId }
+                AlertDialog(
+                    onDismissRequest = {
+                        showPasswordDialog = false
+                        activeAuthNoteId = null
+                    },
+                    title = { Text("Enter Note Password", fontWeight = FontWeight.Bold) },
+                    text = {
+                        Column {
+                            Text("This note is protected. Enter password to unlock.", fontSize = 14.sp, color = TextSecondary)
+                            Spacer(modifier = Modifier.height(12.dp))
+                            OutlinedTextField(
+                                value = passwordInput,
+                                onValueChange = {
+                                    passwordInput = it
+                                    passwordError = false
+                                },
+                                label = { Text("Password") },
+                                modifier = Modifier.fillMaxWidth(),
+                                isError = passwordError,
+                                singleLine = true,
+                                shape = RoundedCornerShape(12.dp)
+                            )
+                            if (passwordError) {
+                                Text("Incorrect password. Try again.", color = ErrorRed, fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp))
+                            }
+                        }
+                    },
+                    confirmButton = {
+                        Button(
+                            onClick = {
+                                if (passwordInput == noteToAuth?.securityPassword) {
+                                    showPasswordDialog = false
+                                    onNoteClick(activeAuthNoteId!!)
+                                    activeAuthNoteId = null
+                                } else {
+                                    passwordError = true
+                                }
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue)
+                        ) {
+                            Text("Unlock", color = Color.White)
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(
+                            onClick = {
+                                showPasswordDialog = false
+                                activeAuthNoteId = null
+                            }
+                        ) {
+                            Text("Cancel", color = TextSecondary)
+                        }
+                    },
+                    shape = RoundedCornerShape(20.dp)
+                )
             }
         }
     }

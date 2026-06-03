@@ -25,6 +25,7 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector?
     data object NoteDetail : Screen("note_detail/{noteId}", "Note Details")
     data object AddLocationNote : Screen("add_location_note", "Add Location Note")
     data object LocationNoteDetail : Screen("location_note_detail/{noteId}", "Location Note Details")
+    data object EditNote : Screen("edit_note/{noteId}", "Edit Note")
     
     companion object {
         // List of screens to show in the navigation drawer
@@ -39,7 +40,7 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector?
             return route != Login.route && route != SignUp.route && 
                    route != AddNote.route && route?.startsWith("note_detail") != true &&
                    route != AddLocationNote.route && route?.startsWith("location_note_detail") != true &&
-                   route != LocationNotes.route
+                   route != LocationNotes.route && route?.startsWith("edit_note") != true
         }
     }
 }

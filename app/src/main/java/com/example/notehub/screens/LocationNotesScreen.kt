@@ -28,6 +28,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import com.example.notehub.ui.security.BiometricHelper
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -64,6 +65,13 @@ fun LocationNotesScreen(
     viewModel: LocationNotesViewModel = viewModel()
 ) {
     val context = LocalContext.current
+    
+    // Security auth states
+    var activeAuthNoteId by remember { mutableStateOf<Int?>(null) }
+    var showPasswordDialog by remember { mutableStateOf(false) }
+    var passwordInput by remember { mutableStateOf("") }
+    var passwordError by remember { mutableStateOf(false) }
+
     var hasLocationPermission by remember {
         mutableStateOf(
             ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
@@ -133,7 +141,30 @@ fun LocationNotesScreen(
                 // Main Map Screen Layout
                 MapContent(
                     viewModel = viewModel,
-                    onNoteClick = onNoteClick
+                    onNoteClick = { noteId ->
+                        val originalNote = viewModel.notes.find { it.id == noteId }
+                        if (originalNote?.isSecured == true) {
+                            activeAuthNoteId = noteId
+                            passwordInput = ""
+                            passwordError = false
+                            val activity = context as? androidx.fragment.app.FragmentActivity
+                            if (activity != null && BiometricHelper.isBiometricAvailable(activity)) {
+                                BiometricHelper.showBiometricPrompt(
+                                    activity = activity,
+                                    onSuccess = {
+                                        onNoteClick(noteId)
+                                    },
+                                    onError = { error ->
+                                        showPasswordDialog = true
+                                    }
+                                )
+                            } else {
+                                showPasswordDialog = true
+                            }
+                        } else {
+                            onNoteClick(noteId)
+                        }
+                    }
                 )
             } else {
                 // Permission Fallback Screen
@@ -145,6 +176,65 @@ fun LocationNotesScreen(
                         )
                     )
                 }
+            }
+
+            if (showPasswordDialog && activeAuthNoteId != null) {
+                val noteToAuth = viewModel.notes.find { it.id == activeAuthNoteId }
+                AlertDialog(
+                    onDismissRequest = {
+                        showPasswordDialog = false
+                        activeAuthNoteId = null
+                    },
+                    title = { Text("Enter Note Password", fontWeight = FontWeight.Bold) },
+                    text = {
+                        Column {
+                            Text("This note is protected. Enter password to unlock.", fontSize = 14.sp, color = TextSecondary)
+                            Spacer(modifier = Modifier.height(12.dp))
+                            OutlinedTextField(
+                                value = passwordInput,
+                                onValueChange = {
+                                    passwordInput = it
+                                    passwordError = false
+                                },
+                                label = { Text("Password") },
+                                modifier = Modifier.fillMaxWidth(),
+                                isError = passwordError,
+                                singleLine = true,
+                                shape = RoundedCornerShape(12.dp)
+                            )
+                            if (passwordError) {
+                                Text("Incorrect password. Try again.", color = ErrorRed, fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp))
+                            }
+                        }
+                    },
+                    confirmButton = {
+                        Button(
+                            onClick = {
+                                if (passwordInput == noteToAuth?.securityPassword) {
+                                    showPasswordDialog = false
+                                    onNoteClick(activeAuthNoteId!!)
+                                    activeAuthNoteId = null
+                                } else {
+                                    passwordError = true
+                                }
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue)
+                        ) {
+                            Text("Unlock", color = Color.White)
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(
+                            onClick = {
+                                showPasswordDialog = false
+                                activeAuthNoteId = null
+                            }
+                        ) {
+                            Text("Cancel", color = TextSecondary)
+                        }
+                    },
+                    shape = RoundedCornerShape(20.dp)
+                )
             }
         }
     }
@@ -210,8 +300,8 @@ fun MapContent(
         filteredNotes.forEach { note ->
             Marker(
                 state = rememberMarkerState(position = LatLng(note.latitude, note.longitude)),
-                title = note.title,
-                snippet = note.address,
+                title = if (note.isSecured) "🔒 Secure Note" else note.title,
+                snippet = if (note.isSecured) "Content is locked" else note.address,
                 onClick = {
                     viewModel.selectedNote = note
                     scope.launch {
@@ -470,8 +560,11 @@ fun LocationNotePreviewCard(
 
             Spacer(modifier = Modifier.height(10.dp))
 
+            val displayTitle = if (note.isSecured) "🔒 Secure Note" else note.title
+            val displayDescription = if (note.isSecured) "Content is locked. Tap details to unlock." else note.description
+
             Text(
-                text = note.title,
+                text = displayTitle,
                 fontWeight = FontWeight.Bold,
                 fontSize = 18.sp,
                 color = MaterialTheme.colorScheme.onSurface,
@@ -482,7 +575,7 @@ fun LocationNotePreviewCard(
             Spacer(modifier = Modifier.height(4.dp))
 
             Text(
-                text = note.description,
+                text = displayDescription,
                 fontSize = 13.sp,
                 color = TextSecondary,
                 maxLines = 2,
@@ -584,8 +677,11 @@ fun LocationNoteMiniCard(
 
                 Spacer(modifier = Modifier.height(6.dp))
 
+                val displayTitle = if (note.isSecured) "🔒 Secure Note" else note.title
+                val displayDescription = if (note.isSecured) "Content is locked. Tap to authenticate." else note.description
+
                 Text(
-                    text = note.title,
+                    text = displayTitle,
                     fontWeight = FontWeight.Bold,
                     fontSize = 15.sp,
                     color = MaterialTheme.colorScheme.onSurface,
@@ -596,7 +692,7 @@ fun LocationNoteMiniCard(
                 Spacer(modifier = Modifier.height(4.dp))
 
                 Text(
-                    text = note.description,
+                    text = displayDescription,
                     fontSize = 12.sp,
                     color = TextSecondary,
                     maxLines = 2,

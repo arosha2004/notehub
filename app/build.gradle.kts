@@ -65,6 +65,7 @@ dependencies {
 
     // Coil — async image loading for AsyncImage (profile photo from camera/gallery)
     implementation("io.coil-kt:coil-compose:2.6.0")
+    implementation("androidx.biometric:biometric:1.2.0-alpha05")
 
     // Location, Maps & Retrofit dependencies
     implementation(libs.play.services.location)

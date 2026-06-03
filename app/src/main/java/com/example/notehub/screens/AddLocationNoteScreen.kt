@@ -17,6 +17,8 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.GpsFixed
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Place
+import androidx.compose.material.icons.filled.Lock
+import com.example.notehub.ui.security.BiometricHelper
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -53,6 +55,8 @@ fun AddLocationNoteScreen(
     var description by remember { mutableStateOf("") }
     var selectedCategory by remember { mutableStateOf("Personal") }
     var selectedColor by remember { mutableStateOf(PrimaryBlue) }
+    var isSecured by remember { mutableStateOf(false) }
+    var securityPassword by remember { mutableStateOf("") }
 
     // LatLng state
     var noteLatitude by remember { mutableStateOf(0.0) }
@@ -115,6 +119,7 @@ fun AddLocationNoteScreen(
                             if (title.isNotBlank() && description.isNotBlank() && locationFetched) {
                                 // Convert selected color object to hex string representation
                                 val hexString = String.format("#%06X", 0xFFFFFF and selectedColor.value.toLong().toInt())
+                                val pass = if (isSecured && securityPassword.isNotBlank()) securityPassword else null
                                 viewModel.saveLocationNote(
                                     title = title,
                                     description = description,
@@ -123,11 +128,13 @@ fun AddLocationNoteScreen(
                                     address = resolvedAddress,
                                     category = selectedCategory,
                                     colorHex = hexString,
+                                    isSecured = isSecured,
+                                    securityPassword = pass,
                                     onSuccess = onNavigateBack
                                 )
                             }
                         },
-                        enabled = title.isNotBlank() && description.isNotBlank() && locationFetched && !viewModel.isFetchingLocationDetails
+                        enabled = title.isNotBlank() && description.isNotBlank() && (!isSecured || securityPassword.isNotBlank()) && locationFetched && !viewModel.isFetchingLocationDetails
                     ) {
                         Text(
                             text = "Save",
@@ -251,6 +258,78 @@ fun AddLocationNoteScreen(
                         }
                     }
                 }
+            }
+
+            Spacer(modifier = Modifier.height(20.dp))
+
+            // ── SECURE NOTE TOGGLE ─────────────────────────────────────
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Filled.Lock,
+                        contentDescription = null,
+                        tint = if (isSecured) PrimaryBlue else TextTertiary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text(
+                        text = "Secure Note (Biometrics/Password)",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+                Switch(
+                    checked = isSecured,
+                    onCheckedChange = { isSecured = it },
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = BackgroundWhite,
+                        checkedTrackColor = PrimaryBlue
+                    )
+                )
+            }
+
+            if (isSecured) {
+                val isBiometricsSupported = remember { BiometricHelper.isBiometricAvailable(context) }
+                if (isBiometricsSupported) {
+                    Text(
+                        text = "✓ Device biometrics (fingerprint/face lock) detected. This note will require your fingerprint to open.",
+                        fontSize = 13.sp,
+                        color = SuccessGreen,
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+                } else {
+                    Text(
+                        text = "⚠ No registered biometrics found on this device. Only the backup password below will be used to unlock.",
+                        fontSize = 13.sp,
+                        color = WarningYellow,
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+                }
+
+                OutlinedTextField(
+                    value = securityPassword,
+                    onValueChange = { securityPassword = it },
+                    label = { Text("Backup Security Password") },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 16.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = selectedColor,
+                        unfocusedBorderColor = BorderMedium,
+                        focusedLabelColor = selectedColor
+                    ),
+                    shape = RoundedCornerShape(12.dp),
+                    singleLine = true
+                )
             }
 
             Spacer(modifier = Modifier.height(24.dp))

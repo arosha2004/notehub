@@ -15,7 +15,9 @@ data class LocationNoteDto(
     @SerializedName("address") val address: String?,
     @SerializedName("category") val category: String?,
     @SerializedName("color_hex") val colorHex: String?,
-    @SerializedName("created_at") val createdAt: String?
+    @SerializedName("created_at") val createdAt: String?,
+    @SerializedName("is_secured") val isSecured: Int?,
+    @SerializedName("security_password") val securityPassword: String?
 )
 
 /**
@@ -31,7 +33,9 @@ fun LocationNoteDto.toDomain(): LocationNote {
         address = address ?: "Unknown Address",
         date = createdAt?.take(10) ?: "Just now",
         category = category ?: "Personal",
-        colorHex = colorHex ?: "#6366F1"
+        colorHex = colorHex ?: "#6366F1",
+        isSecured = (isSecured ?: 0) == 1,
+        securityPassword = securityPassword
     )
 }
 
@@ -48,6 +52,8 @@ fun LocationNote.toDto(): LocationNoteDto {
         address = address,
         category = category,
         colorHex = colorHex,
-        createdAt = date
+        createdAt = date,
+        isSecured = if (isSecured) 1 else 0,
+        securityPassword = securityPassword
     )
 }

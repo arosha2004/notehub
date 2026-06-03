@@ -33,7 +33,7 @@ import androidx.compose.runtime.mutableStateListOf
 class LocationNotesViewModel(application: Application) : AndroidViewModel(application) {
 
     private val tag = "LocationNotesVM"
-    private val repository: LocationNotesRepository = LocationNotesRepositoryImpl()
+    private val repository: LocationNotesRepository = LocationNotesRepositoryImpl(application)
     private val geofenceManager = GeofenceManager(application)
     private val fusedLocationClient = LocationServices.getFusedLocationProviderClient(application)
 
@@ -126,11 +126,13 @@ class LocationNotesViewModel(application: Application) : AndroidViewModel(applic
         address: String,
         category: String,
         colorHex: String,
+        isSecured: Boolean = false,
+        securityPassword: String? = null,
         onSuccess: () -> Unit
     ) {
         viewModelScope.launch {
             isLoading = true
-            repository.createNote(title, description, latitude, longitude, address, category, colorHex)
+            repository.createNote(title, description, latitude, longitude, address, category, colorHex, isSecured, securityPassword)
                 .onSuccess { newNote ->
                     // Add geofence immediately
                     geofenceManager.addGeofence(
@@ -147,6 +149,44 @@ class LocationNotesViewModel(application: Application) : AndroidViewModel(applic
                 }
                 .onFailure { error ->
                     Log.e(tag, "Error saving note: ${error.localizedMessage}")
+                }
+            isLoading = false
+        }
+    }
+
+    fun updateLocationNote(
+        id: Int,
+        title: String,
+        description: String,
+        latitude: Double,
+        longitude: Double,
+        address: String,
+        category: String,
+        colorHex: String,
+        isSecured: Boolean = false,
+        securityPassword: String? = null,
+        onSuccess: () -> Unit
+    ) {
+        viewModelScope.launch {
+            isLoading = true
+            repository.updateNote(id, title, description, latitude, longitude, address, category, colorHex, isSecured, securityPassword)
+                .onSuccess { newNote ->
+                    // Refresh geofence
+                    geofenceManager.removeGeofence(newNote.id.toString())
+                    geofenceManager.addGeofence(
+                        noteId = newNote.id.toString(),
+                        latitude = newNote.latitude,
+                        longitude = newNote.longitude,
+                        title = "Note Reminder: ${newNote.title}",
+                        description = newNote.description
+                    )
+                    fetchNotes() // Reload data
+                    withContext(Dispatchers.Main) {
+                        onSuccess()
+                    }
+                }
+                .onFailure { error ->
+                    Log.e(tag, "Error updating note: ${error.localizedMessage}")
                 }
             isLoading = false
         }

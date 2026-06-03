@@ -169,12 +169,26 @@ fun AppNavHost(
                 onNavigateBack = {
                     navController.popBackStack()
                 },
+                onEditClick = { id ->
+                    navController.navigate("edit_note/$id")
+                },
                 viewModel = sharedViewModel
             )
         }
 
         composable(Screen.AddNote.route) {
             AddNoteScreen(
+                onNavigateBack = {
+                    navController.popBackStack()
+                },
+                viewModel = sharedViewModel
+            )
+        }
+
+        composable(Screen.EditNote.route) { backStackEntry ->
+            val noteId = backStackEntry.arguments?.getString("noteId")?.toIntOrNull()
+            AddNoteScreen(
+                noteId = noteId,
                 onNavigateBack = {
                     navController.popBackStack()
                 },
@@ -212,6 +226,9 @@ fun AppNavHost(
                 noteId = noteId,
                 onNavigateBack = {
                     navController.popBackStack()
+                },
+                onEditClick = { id ->
+                    navController.navigate("edit_note/$id")
                 },
                 viewModel = sharedViewModel
             )

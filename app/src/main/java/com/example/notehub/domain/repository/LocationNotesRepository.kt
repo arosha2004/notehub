@@ -23,7 +23,25 @@ interface LocationNotesRepository {
         longitude: Double,
         address: String,
         category: String,
-        colorHex: String
+        colorHex: String,
+        isSecured: Boolean = false,
+        securityPassword: String? = null
+    ): Result<LocationNote>
+
+    /**
+     * Updates an existing note.
+     */
+    suspend fun updateNote(
+        id: Int,
+        title: String,
+        description: String,
+        latitude: Double,
+        longitude: Double,
+        address: String,
+        category: String,
+        colorHex: String,
+        isSecured: Boolean = false,
+        securityPassword: String? = null
     ): Result<LocationNote>
 
     /**

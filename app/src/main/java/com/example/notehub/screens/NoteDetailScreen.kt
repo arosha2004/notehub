@@ -37,6 +37,7 @@ import kotlinx.coroutines.launch
 fun NoteDetailScreen(
     noteId: Int,
     onNavigateBack: () -> Unit,
+    onEditClick: (Int) -> Unit = {},
     viewModel: LocationNotesViewModel = viewModel()
 ) {
     // Find the note in our dynamic ViewModel notes list
@@ -66,12 +67,7 @@ fun NoteDetailScreen(
                 },
                 actions = {
                     IconButton(onClick = {
-                        scope.launch {
-                            snackbarHostState.showSnackbar(
-                                message = "Edit feature coming soon!",
-                                duration = SnackbarDuration.Short
-                            )
-                        }
+                        onEditClick(noteId)
                     }) {
                         Icon(Icons.Default.Edit, contentDescription = "Edit Note")
                     }

@@ -38,6 +38,7 @@ import com.google.maps.android.compose.*
 fun LocationNoteDetailScreen(
     noteId: Int,
     onNavigateBack: () -> Unit,
+    onEditClick: (Int) -> Unit = {},
     viewModel: LocationNotesViewModel = viewModel()
 ) {
     val context = LocalContext.current
@@ -113,6 +114,13 @@ fun LocationNoteDetailScreen(
                     }
                 },
                 actions = {
+                    IconButton(onClick = { onEditClick(note.id) }) {
+                        Icon(
+                            imageVector = Icons.Filled.Edit,
+                            contentDescription = "Edit Location Note",
+                            tint = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
                     IconButton(onClick = { showDeleteDialog = true }) {
                         Icon(
                             imageVector = Icons.Filled.Delete,
