@@ -23,8 +23,26 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.IOException
 import java.util.Locale
-import com.example.notehub.domain.model.Upload
 import androidx.compose.runtime.mutableStateListOf
+import com.example.notehub.domain.model.Upload
+import com.example.notehub.data.remote.TokenManager
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
+import java.io.File
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.AttachFile
+
+/** DTO for storing Upload data locally */
+data class UploadDto(
+    val id: Int,
+    val fileName: String,
+    val fileType: String,
+    val fileSize: String,
+    val uploadDate: String,
+    val uriString: String?
+)
 
 /**
  * LocationNotesViewModel — Orchestrates coordinates capture, reverse-geocoding addresses,
@@ -39,8 +57,70 @@ class LocationNotesViewModel(application: Application) : AndroidViewModel(applic
 
     // ── STATE VARIABLES ───────────────────────────────────────────
     
+    private val gson = Gson()
+    
     // Shared Uploads list
     val uploads = mutableStateListOf<Upload>()
+    
+    private fun getSanitizedEmail(): String {
+        val email = TokenManager.getLoggedInEmail() ?: "guest"
+        return email.lowercase().replace(Regex("[^a-zA-Z0-9_]"), "_")
+    }
+
+    private fun getUploadsFile(): File {
+        return File(getApplication<Application>().filesDir, "uploads_${getSanitizedEmail()}.json")
+    }
+
+    fun saveUploads() {
+        try {
+            val dtoList = uploads.map {
+                UploadDto(
+                    id = it.id,
+                    fileName = it.fileName,
+                    fileType = it.fileType,
+                    fileSize = it.fileSize,
+                    uploadDate = it.uploadDate,
+                    uriString = it.uri?.toString()
+                )
+            }
+            getUploadsFile().writeText(gson.toJson(dtoList))
+        } catch(e: Exception) {
+            Log.e(tag, "Failed to save uploads: ${e.localizedMessage}")
+        }
+    }
+
+    fun loadUploads() {
+        try {
+            val file = getUploadsFile()
+            if (file.exists()) {
+                val json = file.readText()
+                val type = object : TypeToken<List<UploadDto>>() {}.type
+                val dtoList: List<UploadDto> = gson.fromJson(json, type) ?: emptyList()
+                val loadedUploads = dtoList.map { dto ->
+                    val isImage = dto.fileType in listOf("PNG", "JPG", "JPEG", "GIF", "WEBP")
+                    val isDoc = dto.fileType in listOf("PDF", "DOC", "DOCX", "TXT", "XLS", "XLSX", "PPT", "PPTX")
+                    val icon = if (isImage) Icons.Filled.Image 
+                               else if (isDoc) Icons.Filled.Description 
+                               else Icons.Filled.AttachFile
+                    Upload(
+                        id = dto.id,
+                        fileName = dto.fileName,
+                        fileType = dto.fileType,
+                        fileSize = dto.fileSize,
+                        uploadDate = dto.uploadDate,
+                        icon = icon,
+                        uri = dto.uriString?.let { android.net.Uri.parse(it) }
+                    )
+                }
+                uploads.clear()
+                uploads.addAll(loadedUploads)
+            } else {
+                uploads.clear()
+            }
+        } catch(e: Exception) {
+            Log.e(tag, "Failed to load uploads: ${e.localizedMessage}")
+        }
+    }
     
     // Core Notes list
     var notes by mutableStateOf<List<LocationNote>>(emptyList())
@@ -86,6 +166,7 @@ class LocationNotesViewModel(application: Application) : AndroidViewModel(applic
      * Loads location notes and schedules/refreshes geofences.
      */
     fun fetchNotes() {
+        loadUploads()
         viewModelScope.launch {
             isLoading = true
             repository.getNotes()

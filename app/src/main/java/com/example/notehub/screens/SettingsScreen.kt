@@ -35,10 +35,18 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.FileProvider
 import coil.compose.AsyncImage
 import com.example.notehub.R
+import com.example.notehub.data.AuthService
+import com.example.notehub.data.remote.TokenManager
 import com.example.notehub.ui.theme.*
 import androidx.compose.ui.tooling.preview.Preview
 import kotlinx.coroutines.launch
 import java.io.File
+import android.content.Intent
+import android.content.IntentFilter
+import android.os.BatteryManager
+import androidx.compose.foundation.isSystemInDarkTheme
+import com.example.notehub.utils.NetworkMonitor
+import com.example.notehub.ui.security.BiometricHelper
 
 // Helper — creates a temp file in cache/camera_photos/ for the camera to write to
 private fun createImageFile(context: Context): File {
@@ -64,9 +72,16 @@ fun SettingsScreen(
 
     // ── STATE VARIABLES ────────────────────────────────────────────
 
+    val storedName = TokenManager.getLoggedInName()
+    val storedEmail = TokenManager.getLoggedInEmail()
+
     // Profile fields (pre-filled with current user data)
-    var fullName by remember { mutableStateOf("Arosha") }
-    var email by remember { mutableStateOf("Arosha@gmail.com") }
+    var fullName by remember(storedName, storedEmail) {
+        mutableStateOf(if (!storedName.isNullOrEmpty()) storedName else "Arosha")
+    }
+    var email by remember(storedName, storedEmail) {
+        mutableStateOf(if (!storedEmail.isNullOrEmpty()) storedEmail else "Arosha@gmail.com")
+    }
 
     // Profile photo URI — null = show default icon drawable
     var profilePhotoUri by remember { mutableStateOf<Uri?>(null) }
@@ -96,6 +111,32 @@ fun SettingsScreen(
 
     // Show logout confirmation dialog
     var showLogoutDialog by remember { mutableStateOf(false) }
+
+    // Battery diagnostic state
+    var batteryPercentage by remember { mutableStateOf(100) }
+    var isBatteryCharging by remember { mutableStateOf(false) }
+
+    DisposableEffect(context) {
+        val receiver = object : android.content.BroadcastReceiver() {
+            override fun onReceive(ctx: Context?, intent: Intent?) {
+                intent?.let {
+                    val level = it.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
+                    val scale = it.getIntExtra(BatteryManager.EXTRA_SCALE, -1)
+                    if (level >= 0 && scale > 0) {
+                        batteryPercentage = (level * 100) / scale
+                    }
+                    val status = it.getIntExtra(BatteryManager.EXTRA_STATUS, -1)
+                    isBatteryCharging = status == BatteryManager.BATTERY_STATUS_CHARGING ||
+                                        status == BatteryManager.BATTERY_STATUS_FULL
+                }
+            }
+        }
+        val filter = IntentFilter(Intent.ACTION_BATTERY_CHANGED)
+        context.registerReceiver(receiver, filter)
+        onDispose {
+            context.unregisterReceiver(receiver)
+        }
+    }
 
     // ── ACTIVITY RESULT LAUNCHERS ──────────────────────────────────
 
@@ -161,6 +202,8 @@ fun SettingsScreen(
                 Button(
                     onClick = {
                         showLogoutDialog = false
+                        // Clear JWT token + user identity so next login starts fresh
+                        AuthService.logout()
                         onLogout()
                     },
                     colors = ButtonDefaults.buttonColors(
@@ -408,6 +451,7 @@ fun SettingsScreen(
                     // Shows success snackbar when tapped
                     Button(
                         onClick = {
+                            TokenManager.saveUser(email, fullName, TokenManager.getLoggedInUserId())
                             scope.launch {
                                 snackbarHostState.showSnackbar(
                                     message = "Profile updated successfully!",
@@ -588,7 +632,6 @@ fun SettingsScreen(
 
             Spacer(modifier = Modifier.height(20.dp))
 
-
             // SECTION 3 — APPEARANCE
             // Dark Mode toggle — FULLY FUNCTIONAL
             // Uses ThemeManager singleton to change the app theme globally
@@ -608,17 +651,17 @@ fun SettingsScreen(
                         modifier = Modifier.padding(bottom = 20.dp)
                     )
 
-                    // ── DARK MODE TOGGLE ───────────────────────────────
-                    // ThemeManager.isDarkMode = current value of the dark mode state
-                    // ThemeManager.setDarkMode(it) = called when toggle changes
-                    // 'it' = the new boolean value passed by the Switch
+                    val systemInDark = isSystemInDarkTheme()
+                    val activeDarkMode = remember(systemInDark, ThemeManager.hasUserSetDarkModeManualPref, ThemeManager.isDarkMode) {
+                        if (ThemeManager.hasUserSetDarkModeManualPref) ThemeManager.isDarkMode else systemInDark
+                    }
                     SettingItem(
                         icon = Icons.Filled.DarkMode,
                         title = "Dark Mode",
-                        description = "Switch between light and dark theme",
-                        isChecked = ThemeManager.isDarkMode, // reads current dark mode state
+                        description = if (ThemeManager.hasUserSetDarkModeManualPref) "Manually overridden" else "Following system theme",
+                        isChecked = activeDarkMode,
                         onCheckedChange = {
-                            ThemeManager.setDarkMode(it) // updates global theme (triggers full app redraw)
+                            ThemeManager.setDarkMode(it)
                         }
                     )
                 }
@@ -662,6 +705,126 @@ fun SettingsScreen(
                             }
                         }
                     )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(20.dp))
+
+            // ═══════════════════════════════════════════════════════════
+            // SECTION 4.5 — DEVICE STATUS DIAGNOSTICS
+            // ═══════════════════════════════════════════════════════════
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            ) {
+                Column(modifier = Modifier.fillMaxWidth().padding(24.dp)) {
+                    Text(
+                        text = "Device Status",
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.padding(bottom = 20.dp)
+                    )
+
+                    // 1. Network Connectivity Status
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = if (NetworkMonitor.isOnline()) Icons.Filled.Wifi else Icons.Filled.WifiOff,
+                                contentDescription = "Network Status",
+                                tint = if (NetworkMonitor.isOnline()) PrimaryBlue else ErrorRed,
+                                modifier = Modifier.size(24.dp)
+                            )
+                            Spacer(modifier = Modifier.width(16.dp))
+                            Column {
+                                Text("Network Connectivity", fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
+                                Text(
+                                    if (NetworkMonitor.isOnline()) "AWS Backend Connected" else "Offline Mode Active",
+                                    fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                        Text(
+                            text = if (NetworkMonitor.isOnline()) "Online" else "Offline",
+                            color = if (NetworkMonitor.isOnline()) SuccessGreen else Color(0xFFF59E0B),
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 14.sp
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // 2. Battery Sensor Status
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Filled.Info,
+                                contentDescription = "Battery Status",
+                                tint = if (batteryPercentage > 20) SuccessGreen else ErrorRed,
+                                modifier = Modifier.size(24.dp)
+                            )
+                            Spacer(modifier = Modifier.width(16.dp))
+                            Column {
+                                Text("Battery Status", fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
+                                Text(
+                                    if (isBatteryCharging) "Charging" else "Discharging",
+                                    fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                        Text(
+                            text = "$batteryPercentage%",
+                            color = MaterialTheme.colorScheme.onSurface,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 14.sp
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // 3. Biometric Sensor Availability
+                    val isBiometricsSupported = remember { BiometricHelper.isBiometricAvailable(context) }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Filled.Fingerprint,
+                                contentDescription = "Biometric Sensor",
+                                tint = if (isBiometricsSupported) PrimaryBlue else MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(24.dp)
+                            )
+                            Spacer(modifier = Modifier.width(16.dp))
+                            Column {
+                                Text("Biometric Authentication", fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
+                                Text(
+                                    if (isBiometricsSupported) "Fingerprint / Face ID ready" else "Biometrics not supported on device",
+                                    fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                        Text(
+                            text = if (isBiometricsSupported) "Available" else "Disabled",
+                            color = if (isBiometricsSupported) SuccessGreen else MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 14.sp
+                        )
+                    }
                 }
             }
 

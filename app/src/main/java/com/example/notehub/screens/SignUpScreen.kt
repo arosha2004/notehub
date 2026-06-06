@@ -6,6 +6,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -29,6 +30,7 @@ import com.example.notehub.data.AuthResult
 import com.example.notehub.data.AuthService
 import com.example.notehub.ui.components.NoteHubTextField
 import com.example.notehub.ui.theme.*
+import com.example.notehub.utils.NetworkMonitor
 import androidx.compose.ui.tooling.preview.Preview
 import kotlinx.coroutines.launch
 
@@ -49,9 +51,16 @@ fun SignUpScreen(
     var confirmPasswordVisible by remember { mutableStateOf(false) }
     var isLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
-    
+
     val scope = rememberCoroutineScope()
     val scrollState = rememberScrollState()
+
+    // ── Live network state ──────────────────────────────────────────
+    val isOnline by NetworkMonitor.observeNetwork()
+        .collectAsState(initial = NetworkMonitor.isOnline())
+    val statusColor = if (isOnline) Color(0xFF4CAF50) else Color(0xFFF59E0B)
+    val statusIcon  = if (isOnline) Icons.Filled.Wifi else Icons.Filled.WifiOff
+    val statusLabel = if (isOnline) "Online" else "Offline"
 
     // ── UI LAYOUT ──────────────────────────────────────────────────
     Box(
@@ -68,6 +77,25 @@ fun SignUpScreen(
             ),
         contentAlignment = Alignment.Center
     ) {
+        // ── Network status pill (top-right) ─────────────────────────
+        Surface(
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(top = 52.dp, end = 20.dp),
+            shape = RoundedCornerShape(50),
+            color = statusColor.copy(alpha = 0.12f)
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(modifier = Modifier.size(8.dp).background(statusColor, CircleShape))
+                Spacer(Modifier.width(6.dp))
+                Icon(statusIcon, contentDescription = null, tint = statusColor, modifier = Modifier.size(14.dp))
+                Spacer(Modifier.width(4.dp))
+                Text(statusLabel, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = statusColor)
+            }
+        }
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -129,6 +157,31 @@ fun SignUpScreen(
                         .fillMaxWidth()
                         .padding(28.dp)
                 ) {
+                    // OFFLINE WARNING BANNER
+                    AnimatedVisibility(
+                        visible = !isOnline,
+                        enter = expandVertically() + fadeIn(),
+                        exit = shrinkVertically() + fadeOut()
+                    ) {
+                        Surface(
+                            color = Color(0xFFF59E0B).copy(alpha = 0.1f),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.padding(bottom = 20.dp).fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(Icons.Filled.WifiOff, contentDescription = null, tint = Color(0xFFF59E0B), modifier = Modifier.size(20.dp))
+                                Spacer(Modifier.width(12.dp))
+                                Column {
+                                    Text("No Internet Connection", color = Color(0xFFF59E0B), fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                                    Text("Connect to the internet to create an account.", color = Color(0xFFF59E0B).copy(alpha = 0.8f), fontSize = 11.sp)
+                                }
+                            }
+                        }
+                    }
+
                     // ERROR ALERT
                     AnimatedVisibility(
                         visible = errorMessage != null,
@@ -234,9 +287,13 @@ fun SignUpScreen(
 
                     Spacer(modifier = Modifier.height(32.dp))
 
-                    // SIGN UP BUTTON
+                    // SIGN UP BUTTON (disabled when offline)
                     Button(
                         onClick = {
+                            if (!isOnline) {
+                                errorMessage = "You are offline. Connect to the internet to create an account."
+                                return@Button
+                            }
                             if (password != confirmPassword) {
                                 errorMessage = "Passwords do not match"
                                 return@Button
@@ -259,7 +316,7 @@ fun SignUpScreen(
                             .height(56.dp),
                         shape = RoundedCornerShape(16.dp),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = PrimaryBlue,
+                            containerColor = if (isOnline) PrimaryBlue else Color(0xFF9E9E9E),
                             contentColor = Color.White
                         ),
                         enabled = !isLoading
@@ -272,8 +329,8 @@ fun SignUpScreen(
                             )
                         } else {
                             Text(
-                                text = "Create Account",
-                                fontSize = 17.sp,
+                                text = if (isOnline) "Create Account" else "No Internet — Cannot Register",
+                                fontSize = 16.sp,
                                 fontWeight = FontWeight.Bold
                             )
                         }

@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -211,327 +212,366 @@ fun AddNoteScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(16.dp)
         ) {
-            Text(
-                text = "Category",
-                fontSize = 14.sp,
-                color = TextSecondary,
-                fontWeight = FontWeight.Medium,
-                modifier = Modifier.padding(bottom = 8.dp)
-            )
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                categories.forEach { category ->
-                    FilterChip(
-                        selected = selectedCategory == category,
-                        onClick = { selectedCategory = category },
-                        label = { Text(category) },
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = selectedColor.copy(alpha = 0.1f),
-                            selectedLabelColor = selectedColor,
-                        ),
-                        border = FilterChipDefaults.filterChipBorder(
-                            borderColor = if (selectedCategory == category) selectedColor else BorderMedium,
-                            selectedBorderColor = selectedColor,
-                            enabled = true,
-                            selected = selectedCategory == category
-                        )
-                    )
-                }
-            }
-
-            // ── COLOR PICKER ROW ───────────────────────────────────────
-            Text(
-                text = "Note Color",
-                fontSize = 14.sp,
-                color = TextSecondary,
-                fontWeight = FontWeight.Medium,
-                modifier = Modifier.padding(bottom = 8.dp)
-            )
-
-            val noteColors = listOf(PrimaryBlue, SuccessGreen, WarningYellow, InfoBlue, AccentPurple, ErrorRed)
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                noteColors.forEach { color ->
-                    Box(
-                        modifier = Modifier
-                            .size(if (selectedColor == color) 36.dp else 30.dp)
-                            .clip(CircleShape)
-                            .background(color)
-                            .clickable { selectedColor = color },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        if (selectedColor == color) {
-                            Icon(
-                                imageVector = Icons.Filled.Palette,
-                                contentDescription = "Selected",
-                                tint = Color.White,
-                                modifier = Modifier.size(18.dp)
-                            )
-                        }
-                    }
-                }
-            }
-
-            // ── LOCATION TOGGLE ────────────────────────────────────────
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        imageVector = Icons.Filled.LocationOn,
-                        contentDescription = null,
-                        tint = if (isLocationBased) PrimaryBlue else TextTertiary,
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Text(
-                        text = "Location-based Note",
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                }
-                Switch(
-                    checked = isLocationBased,
-                    onCheckedChange = { isLocationBased = it },
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = BackgroundWhite,
-                        checkedTrackColor = PrimaryBlue
-                    )
-                )
-            }
-
-            // ── LOCATION DETAILS & MAP PREVIEW ─────────────────────────
-            if (isLocationBased) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 16.dp)
-                ) {
-                    if (viewModel.isFetchingLocationDetails) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(vertical = 8.dp)
-                        ) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(20.dp),
-                                color = PrimaryBlue,
-                                strokeWidth = 2.dp
-                            )
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Text(
-                                text = "Fetching GPS location...",
-                                fontSize = 14.sp,
-                                color = TextSecondary
-                            )
-                        }
-                    } else if (locationFetched) {
-                        Text(
-                            text = "Address:",
-                            fontSize = 12.sp,
-                            color = TextSecondary,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            text = resolvedAddress.ifEmpty { "Lat: $noteLatitude, Lng: $noteLongitude" },
-                            fontSize = 14.sp,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.padding(bottom = 8.dp)
-                        )
-                        
-                        Card(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(160.dp)
-                                .border(1.dp, BorderLight.copy(alpha = 0.15f), RoundedCornerShape(12.dp)),
-                            shape = RoundedCornerShape(12.dp),
-                            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-                        ) {
-                            val mapProperties = MapProperties(
-                                isMyLocationEnabled = true,
-                                mapStyleOptions = if (ThemeManager.isDarkMode) MapStyleOptions(googleMapDarkStyle) else null
-                            )
-                            val mapUiSettings = MapUiSettings(
-                                zoomControlsEnabled = false,
-                                myLocationButtonEnabled = false,
-                                scrollGesturesEnabled = false,
-                                zoomGesturesEnabled = false,
-                                tiltGesturesEnabled = false,
-                                rotationGesturesEnabled = false
-                            )
-                            
-                            GoogleMap(
-                                modifier = Modifier.fillMaxSize(),
-                                cameraPositionState = cameraPositionState,
-                                properties = mapProperties,
-                                uiSettings = mapUiSettings
-                            ) {
-                                Marker(
-                                    state = rememberMarkerState(position = LatLng(noteLatitude, noteLongitude)),
-                                    title = "Note Location",
-                                    snippet = resolvedAddress
-                                )
-                            }
-                        }
-                    } else {
-                        Text(
-                            text = "Failed to fetch GPS location. Ensure location services are enabled.",
-                            fontSize = 13.sp,
-                            color = ErrorRed,
-                            modifier = Modifier.padding(bottom = 8.dp)
-                        )
-                    }
-                }
-            }
-
-            // ── PIN TO TOP TOGGLE ──────────────────────────────────────
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        imageVector = Icons.Default.PushPin,
-                        contentDescription = null,
-                        tint = if (isPinned) WarningYellow else TextTertiary,
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Text(
-                        text = "Pin to top",
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                }
-                Switch(
-                    checked = isPinned,
-                    onCheckedChange = { isPinned = it },
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = BackgroundWhite,
-                        checkedTrackColor = PrimaryBlue
-                    )
-                )
-            }
-
-            // ── SECURE NOTE TOGGLE ─────────────────────────────────────
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        imageVector = Icons.Filled.Lock,
-                        contentDescription = null,
-                        tint = if (isSecured) PrimaryBlue else TextTertiary,
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Text(
-                        text = "Secure Note (Biometrics/Password)",
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                }
-                Switch(
-                    checked = isSecured,
-                    onCheckedChange = { isSecured = it },
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = BackgroundWhite,
-                        checkedTrackColor = PrimaryBlue
-                    )
-                )
-            }
-
-            if (isSecured) {
-                val isBiometricsSupported = remember { BiometricHelper.isBiometricAvailable(context) }
-                if (isBiometricsSupported) {
-                    Text(
-                        text = "✓ Device biometrics (fingerprint/face lock) detected. This note will require your fingerprint to open.",
-                        fontSize = 13.sp,
-                        color = SuccessGreen,
-                        fontWeight = FontWeight.Medium,
-                        modifier = Modifier.padding(bottom = 8.dp)
-                    )
-                } else {
-                    Text(
-                        text = "⚠ No registered biometrics found on this device. Only the backup password below will be used to unlock.",
-                        fontSize = 13.sp,
-                        color = WarningYellow,
-                        fontWeight = FontWeight.Medium,
-                        modifier = Modifier.padding(bottom = 8.dp)
-                    )
-                }
-
-                OutlinedTextField(
-                    value = securityPassword,
-                    onValueChange = { securityPassword = it },
-                    label = { Text("Backup Security Password") },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 16.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = selectedColor,
-                        unfocusedBorderColor = BorderMedium,
-                        focusedLabelColor = selectedColor
-                    ),
-                    shape = RoundedCornerShape(12.dp),
-                    singleLine = true
-                )
-            }
-
+            // ── PRIMARY TEXT INPUTS (TITLE & CONTENT) ───────────────────
             OutlinedTextField(
                 value = title,
                 onValueChange = { title = it },
-                label = { Text("Title") },
+                placeholder = { Text("Note Title", fontSize = 20.sp, fontWeight = FontWeight.Bold) },
+                textStyle = LocalTextStyle.current.copy(fontSize = 20.sp, fontWeight = FontWeight.Bold),
                 modifier = Modifier.fillMaxWidth(),
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = selectedColor,
-                    unfocusedBorderColor = BorderMedium,
-                    focusedLabelColor = selectedColor
+                    unfocusedBorderColor = BorderLight.copy(alpha = 0.6f),
+                    focusedContainerColor = MaterialTheme.colorScheme.surface,
+                    unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                    focusedPlaceholderColor = TextTertiary,
+                    unfocusedPlaceholderColor = TextTertiary
                 ),
                 shape = RoundedCornerShape(12.dp),
                 singleLine = true
             )
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
             OutlinedTextField(
                 value = content,
                 onValueChange = { content = it },
-                label = { Text("Content") },
+                placeholder = { Text("Write your thoughts here...", fontSize = 16.sp) },
+                textStyle = LocalTextStyle.current.copy(fontSize = 16.sp),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(200.dp),
+                    .heightIn(min = 150.dp, max = 300.dp),
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = selectedColor,
-                    unfocusedBorderColor = BorderMedium,
-                    focusedLabelColor = selectedColor
+                    unfocusedBorderColor = BorderLight.copy(alpha = 0.6f),
+                    focusedContainerColor = MaterialTheme.colorScheme.surface,
+                    unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                    focusedPlaceholderColor = TextTertiary,
+                    unfocusedPlaceholderColor = TextTertiary
                 ),
                 shape = RoundedCornerShape(12.dp),
-                minLines = 5
+                minLines = 6
             )
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // ── NOTE CONFIGURATION CARD ────────────────────────────────
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surface
+                ),
+                border = BorderStroke(1.dp, selectedColor.copy(alpha = 0.25f)),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp)
+                ) {
+                    Text(
+                        text = "Note Settings",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.padding(bottom = 12.dp)
+                    )
+                    
+                    HorizontalDivider(color = BorderLight.copy(alpha = 0.4f), modifier = Modifier.padding(bottom = 16.dp))
+
+                    // 1. CATEGORY
+                    Text(
+                        text = "Category",
+                        fontSize = 13.sp,
+                        color = TextSecondary,
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        categories.forEach { category ->
+                            FilterChip(
+                                selected = selectedCategory == category,
+                                onClick = { selectedCategory = category },
+                                label = { Text(category, fontSize = 13.sp) },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = selectedColor.copy(alpha = 0.12f),
+                                    selectedLabelColor = selectedColor,
+                                ),
+                                border = FilterChipDefaults.filterChipBorder(
+                                    borderColor = if (selectedCategory == category) selectedColor else BorderMedium,
+                                    selectedBorderColor = selectedColor,
+                                    enabled = true,
+                                    selected = selectedCategory == category
+                                )
+                            )
+                        }
+                    }
+
+                    // 2. COLOR PICKER
+                    Text(
+                        text = "Note Color",
+                        fontSize = 13.sp,
+                        color = TextSecondary,
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+
+                    val noteColors = listOf(PrimaryBlue, SuccessGreen, WarningYellow, InfoBlue, AccentPurple, ErrorRed)
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 20.dp),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        noteColors.forEach { color ->
+                            Box(
+                                modifier = Modifier
+                                    .size(if (selectedColor == color) 36.dp else 30.dp)
+                                    .clip(CircleShape)
+                                    .background(color)
+                                    .clickable { selectedColor = color },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                if (selectedColor == color) {
+                                    Icon(
+                                        imageVector = Icons.Filled.Palette,
+                                        contentDescription = "Selected",
+                                        tint = Color.White,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    HorizontalDivider(color = BorderLight.copy(alpha = 0.4f), modifier = Modifier.padding(bottom = 16.dp))
+
+                    // 3. LOCATION TOGGLE
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Filled.LocationOn,
+                                contentDescription = null,
+                                tint = if (isLocationBased) selectedColor else TextTertiary,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text(
+                                text = "Location-based Note",
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                        Switch(
+                            checked = isLocationBased,
+                            onCheckedChange = { isLocationBased = it },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = BackgroundWhite,
+                                checkedTrackColor = selectedColor
+                            )
+                        )
+                    }
+
+                    // Map preview inside settings card
+                    if (isLocationBased) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(bottom = 16.dp)
+                        ) {
+                            if (viewModel.isFetchingLocationDetails) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.padding(vertical = 8.dp)
+                                ) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(20.dp),
+                                        color = selectedColor,
+                                        strokeWidth = 2.dp
+                                    )
+                                    Spacer(modifier = Modifier.width(12.dp))
+                                    Text(
+                                        text = "Fetching GPS location...",
+                                        fontSize = 14.sp,
+                                        color = TextSecondary
+                                    )
+                                }
+                            } else if (locationFetched) {
+                                Text(
+                                    text = "Resolved Address:",
+                                    fontSize = 12.sp,
+                                    color = TextSecondary,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(bottom = 4.dp)
+                                )
+                                Text(
+                                    text = resolvedAddress.ifEmpty { "Lat: $noteLatitude, Lng: $noteLongitude" },
+                                    fontSize = 13.sp,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier.padding(bottom = 8.dp)
+                                )
+                                
+                                Card(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(140.dp)
+                                        .border(1.dp, BorderLight.copy(alpha = 0.2f), RoundedCornerShape(10.dp)),
+                                    shape = RoundedCornerShape(10.dp),
+                                ) {
+                                    val mapProperties = MapProperties(
+                                        isMyLocationEnabled = true,
+                                        mapStyleOptions = if (ThemeManager.isDarkMode) MapStyleOptions(googleMapDarkStyle) else null
+                                    )
+                                    val mapUiSettings = MapUiSettings(
+                                        zoomControlsEnabled = false,
+                                        myLocationButtonEnabled = false,
+                                        scrollGesturesEnabled = false,
+                                        zoomGesturesEnabled = false,
+                                        tiltGesturesEnabled = false,
+                                        rotationGesturesEnabled = false
+                                    )
+                                    
+                                    GoogleMap(
+                                        modifier = Modifier.fillMaxSize(),
+                                        cameraPositionState = cameraPositionState,
+                                        properties = mapProperties,
+                                        uiSettings = mapUiSettings
+                                    ) {
+                                        Marker(
+                                            state = rememberMarkerState(position = LatLng(noteLatitude, noteLongitude)),
+                                            title = "Note Location",
+                                            snippet = resolvedAddress
+                                        )
+                                    }
+                                }
+                            } else {
+                                Text(
+                                    text = "Failed to fetch GPS location. Ensure location services are enabled.",
+                                    fontSize = 13.sp,
+                                    color = ErrorRed,
+                                    modifier = Modifier.padding(bottom = 8.dp)
+                                )
+                            }
+                        }
+                    }
+
+                    // 4. PIN TOGGLE
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.PushPin,
+                                contentDescription = null,
+                                tint = if (isPinned) WarningYellow else TextTertiary,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text(
+                                text = "Pin to top",
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                        Switch(
+                            checked = isPinned,
+                            onCheckedChange = { isPinned = it },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = BackgroundWhite,
+                                checkedTrackColor = selectedColor
+                            )
+                        )
+                    }
+
+                    // 5. SECURE TOGGLE
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Filled.Lock,
+                                contentDescription = null,
+                                tint = if (isSecured) selectedColor else TextTertiary,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text(
+                                text = "Secure Note (Biometrics/Password)",
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                        Switch(
+                            checked = isSecured,
+                            onCheckedChange = { isSecured = it },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = BackgroundWhite,
+                                checkedTrackColor = selectedColor
+                            )
+                        )
+                    }
+
+                    if (isSecured) {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        val isBiometricsSupported = remember { BiometricHelper.isBiometricAvailable(context) }
+                        if (isBiometricsSupported) {
+                            Text(
+                                text = "✓ Device biometrics (fingerprint/face lock) detected. This note will require your fingerprint to open.",
+                                fontSize = 13.sp,
+                                color = SuccessGreen,
+                                fontWeight = FontWeight.Medium,
+                                modifier = Modifier.padding(bottom = 8.dp)
+                            )
+                        } else {
+                            Text(
+                                text = "⚠ No registered biometrics found on this device. Only the backup password below will be used to unlock.",
+                                fontSize = 13.sp,
+                                color = WarningYellow,
+                                fontWeight = FontWeight.Medium,
+                                modifier = Modifier.padding(bottom = 8.dp)
+                            )
+                        }
+
+                        OutlinedTextField(
+                            value = securityPassword,
+                            onValueChange = { securityPassword = it },
+                            label = { Text("Backup Security Password") },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(bottom = 8.dp),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = selectedColor,
+                                unfocusedBorderColor = BorderMedium,
+                                focusedLabelColor = selectedColor
+                            ),
+                            shape = RoundedCornerShape(12.dp),
+                            singleLine = true
+                        )
+                    }
+                }
+            }
         }
     }
 }

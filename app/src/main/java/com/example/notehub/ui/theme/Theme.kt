@@ -120,7 +120,11 @@ private val OceanLightColorScheme = lightColorScheme(
 
 @Composable
 fun NoteHubTheme(
-    darkTheme: Boolean = ThemeManager.isDarkMode,
+    darkTheme: Boolean = if (ThemeManager.hasUserSetDarkModeManualPref) {
+        ThemeManager.isDarkMode
+    } else {
+        isSystemInDarkTheme()
+    },
     currentTheme: AppTheme = ThemeManager.currentTheme,
     dynamicColor: Boolean = false,
     content: @Composable () -> Unit

@@ -8,6 +8,8 @@ import android.util.Log
 import com.example.notehub.data.remote.RetrofitClient
 import com.example.notehub.data.remote.toDomain
 import com.example.notehub.data.remote.toDto
+import com.example.notehub.data.remote.DataSettings
+import com.example.notehub.data.remote.TokenManager
 import com.example.notehub.domain.model.LocationNote
 import com.example.notehub.domain.repository.LocationNotesRepository
 import com.google.gson.Gson
@@ -34,13 +36,33 @@ class LocationNotesRepositoryImpl(private val context: Context) : LocationNotesR
 
     private val tag = "LocationNotesRepo"
     
-    // Cache and Sync files
-    private val cacheFile = File(context.filesDir, "notes_cache.json")
-    private val syncFile = File(context.filesDir, "pending_sync.json")
     private val gson = Gson()
 
     // Local memory list
     private val localNotes = mutableListOf<LocationNote>()
+
+    private fun getSanitizedEmail(): String {
+        val email = TokenManager.getLoggedInEmail() ?: "guest"
+        return email.lowercase().replace(Regex("[^a-zA-Z0-9_]"), "_")
+    }
+
+    private fun getCacheFile(): File {
+        return File(context.filesDir, "notes_cache_${getSanitizedEmail()}.json")
+    }
+
+    private fun getSyncFile(): File {
+        return File(context.filesDir, "pending_sync_${getSanitizedEmail()}.json")
+    }
+
+    private var lastLoadedEmail: String? = null
+
+    private fun ensureUserLoaded() {
+        val currentEmail = TokenManager.getLoggedInEmail() ?: "guest"
+        if (lastLoadedEmail != currentEmail) {
+            lastLoadedEmail = currentEmail
+            loadNotesFromCache()
+        }
+    }
 
     enum class SyncActionType { CREATE, UPDATE, DELETE }
 
@@ -116,7 +138,7 @@ class LocationNotesRepositoryImpl(private val context: Context) : LocationNotesR
     private fun saveNotesToCache() {
         try {
             val json = gson.toJson(localNotes)
-            cacheFile.writeText(json)
+            getCacheFile().writeText(json)
         } catch (e: Exception) {
             Log.e(tag, "Failed to save notes cache: ${e.localizedMessage}")
         }
@@ -124,6 +146,7 @@ class LocationNotesRepositoryImpl(private val context: Context) : LocationNotesR
 
     private fun loadNotesFromCache() {
         try {
+            val cacheFile = getCacheFile()
             if (cacheFile.exists()) {
                 val json = cacheFile.readText()
                 val type = object : TypeToken<List<LocationNote>>() {}.type
@@ -142,6 +165,7 @@ class LocationNotesRepositoryImpl(private val context: Context) : LocationNotesR
 
     private fun loadPendingActions(): MutableList<PendingSyncAction> {
         try {
+            val syncFile = getSyncFile()
             if (syncFile.exists()) {
                 val json = syncFile.readText()
                 val type = object : TypeToken<MutableList<PendingSyncAction>>() {}.type
@@ -156,13 +180,16 @@ class LocationNotesRepositoryImpl(private val context: Context) : LocationNotesR
     private fun savePendingActions(actions: List<PendingSyncAction>) {
         try {
             val json = gson.toJson(actions)
-            syncFile.writeText(json)
+            getSyncFile().writeText(json)
         } catch (e: Exception) {
             Log.e(tag, "Failed to save pending actions: ${e.localizedMessage}")
         }
     }
 
     private fun isOnline(): Boolean {
+        if (DataSettings.apiSource == DataSettings.ApiSource.OFFLINE_ONLY) {
+            return false
+        }
         val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
         val activeNetwork = cm?.activeNetwork ?: return false
         val caps = cm.getNetworkCapabilities(activeNetwork) ?: return false
@@ -275,8 +302,23 @@ class LocationNotesRepositoryImpl(private val context: Context) : LocationNotesR
     }
 
     override suspend fun getNotes(): Result<List<LocationNote>> = withContext(Dispatchers.IO) {
+        ensureUserLoaded()
         if (localNotes.isEmpty()) {
             loadNotesFromCache()
+        }
+
+        val mode = DataSettings.apiSource
+        if (mode == DataSettings.ApiSource.OFFLINE_ONLY) {
+            Log.d(tag, "Offline Only mode. Returning local cache.")
+            return@withContext Result.success(ArrayList(localNotes))
+        }
+
+        if (mode == DataSettings.ApiSource.PUBLIC_API) {
+            return@withContext fetchPublicApiNotes()
+        }
+
+        if (mode == DataSettings.ApiSource.EXTERNAL_JSON_URL) {
+            return@withContext fetchExternalJsonNotes()
         }
 
         if (isOnline()) {
@@ -339,6 +381,7 @@ class LocationNotesRepositoryImpl(private val context: Context) : LocationNotesR
         isSecured: Boolean,
         securityPassword: String?
     ): Result<LocationNote> = withContext(Dispatchers.IO) {
+        ensureUserLoaded()
         if (localNotes.isEmpty()) {
             loadNotesFromCache()
         }
@@ -408,6 +451,7 @@ class LocationNotesRepositoryImpl(private val context: Context) : LocationNotesR
         isSecured: Boolean,
         securityPassword: String?
     ): Result<LocationNote> = withContext(Dispatchers.IO) {
+        ensureUserLoaded()
         if (localNotes.isEmpty()) {
             loadNotesFromCache()
         }
@@ -476,6 +520,7 @@ class LocationNotesRepositoryImpl(private val context: Context) : LocationNotesR
     }
 
     override suspend fun deleteNote(id: Int): Result<Unit> = withContext(Dispatchers.IO) {
+        ensureUserLoaded()
         if (localNotes.isEmpty()) {
             loadNotesFromCache()
         }
@@ -507,6 +552,78 @@ class LocationNotesRepositoryImpl(private val context: Context) : LocationNotesR
         savePendingActions(actions)
 
         Result.success(Unit)
+    }
+
+
+
+    private data class PublicPostDto(
+        val id: Int,
+        val title: String,
+        val body: String
+    )
+
+    private fun fetchPublicApiNotes(): Result<List<LocationNote>> {
+        return try {
+            val client = okhttp3.OkHttpClient()
+            val request = okhttp3.Request.Builder()
+                .url("https://jsonplaceholder.typicode.com/posts")
+                .build()
+            client.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) {
+                    return Result.failure(Exception("HTTP error: ${response.code}"))
+                }
+                val bodyStr = response.body?.string() ?: ""
+                val type = object : TypeToken<List<PublicPostDto>>() {}.type
+                val posts: List<PublicPostDto> = gson.fromJson(bodyStr, type) ?: emptyList()
+                val mappedNotes = posts.take(15).map { post ->
+                    LocationNote(
+                        id = post.id + 1000,
+                        title = post.title,
+                        description = post.body,
+                        latitude = 6.9271 + (post.id % 5) * 0.005,
+                        longitude = 79.8400 + (post.id % 5) * 0.005,
+                        address = "Public Post Location ${post.id}, Colombo, Sri Lanka",
+                        date = "2026-06-05",
+                        category = "Public API",
+                        colorHex = "#3B82F6",
+                        isSecured = false,
+                        securityPassword = null
+                    )
+                }
+                localNotes.clear()
+                localNotes.addAll(mappedNotes)
+                saveNotesToCache()
+                Result.success(ArrayList(localNotes))
+            }
+        } catch (e: Exception) {
+            Log.w(tag, "Failed to fetch public API: ${e.localizedMessage}")
+            Result.success(ArrayList(localNotes))
+        }
+    }
+
+    private fun fetchExternalJsonNotes(): Result<List<LocationNote>> {
+        return try {
+            val client = okhttp3.OkHttpClient()
+            val request = okhttp3.Request.Builder()
+                .url("https://raw.githubusercontent.com/arosha2004/notehub/master/docs/sample_notes.json")
+                .build()
+            client.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) {
+                    return Result.failure(Exception("HTTP error: ${response.code}"))
+                }
+                val bodyStr = response.body?.string() ?: ""
+                val type = object : TypeToken<List<LocationNote>>() {}.type
+                val externalNotes: List<LocationNote> = gson.fromJson(bodyStr, type) ?: emptyList()
+                
+                localNotes.clear()
+                localNotes.addAll(externalNotes)
+                saveNotesToCache()
+                Result.success(ArrayList(localNotes))
+            }
+        } catch (e: Exception) {
+            Log.w(tag, "Failed to fetch external JSON: ${e.localizedMessage}")
+            Result.success(ArrayList(localNotes))
+        }
     }
 
     override suspend fun getNearbyNotes(

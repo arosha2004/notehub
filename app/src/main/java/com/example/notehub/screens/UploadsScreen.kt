@@ -1,6 +1,7 @@
 package com.example.notehub.screens
 
 import android.content.Context
+import android.content.Intent
 import android.net.Uri
 import android.provider.OpenableColumns
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -89,12 +90,19 @@ fun UploadsScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
+    var previewUpload by remember { mutableStateOf<Upload?>(null) }
 
     // Set up file picker launcher to pick files from storage
     val filePickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
+        contract = ActivityResultContracts.OpenDocument()
     ) { uri: Uri? ->
         if (uri != null) {
+            try {
+                val takeFlags = Intent.FLAG_GRANT_READ_URI_PERMISSION
+                context.contentResolver.takePersistableUriPermission(uri, takeFlags)
+            } catch (e: SecurityException) {
+                // Ignore if it fails
+            }
             val (name, size) = queryUriMetadata(context, uri)
             val extension = name.substringAfterLast('.', "").uppercase()
             val isImage = extension in listOf("PNG", "JPG", "JPEG", "GIF", "WEBP")
@@ -116,6 +124,7 @@ fun UploadsScreen(
                 uri = uri
             )
             uploads.add(newUpload)
+            viewModel.saveUploads()
             
             scope.launch {
                 snackbarHostState.showSnackbar(
@@ -126,6 +135,107 @@ fun UploadsScreen(
         }
     }
 
+    if (previewUpload != null) {
+        val upload = previewUpload!!
+        AlertDialog(
+            onDismissRequest = { previewUpload = null },
+            title = {
+                Text(
+                    text = upload.fileName,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+            },
+            text = {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    val isImage = upload.fileType in listOf("PNG", "JPG", "JPEG", "GIF", "WEBP")
+                    if (isImage && upload.uri != null) {
+                        coil.compose.AsyncImage(
+                            model = upload.uri,
+                            contentDescription = "Image Preview",
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(260.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(MaterialTheme.colorScheme.surfaceVariant),
+                            contentScale = androidx.compose.ui.layout.ContentScale.Fit
+                        )
+                    } else {
+                        Box(
+                            modifier = Modifier
+                                .size(120.dp)
+                                .clip(RoundedCornerShape(16.dp))
+                                .background(PrimaryBlue.copy(alpha = 0.1f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = upload.icon,
+                                contentDescription = upload.fileType,
+                                tint = PrimaryBlue,
+                                modifier = Modifier.size(64.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(
+                            text = "Type: ${upload.fileType} File",
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 15.sp,
+                            color = TextPrimary
+                        )
+                        Text(
+                            text = "Size: ${upload.fileSize}",
+                            fontSize = 13.sp,
+                            color = TextSecondary,
+                            modifier = Modifier.padding(top = 4.dp)
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (upload.uri != null) {
+                            try {
+                                val intent = Intent(Intent.ACTION_VIEW).apply {
+                                    setDataAndType(upload.uri, context.contentResolver.getType(upload.uri) ?: "*/*")
+                                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                }
+                                context.startActivity(intent)
+                            } catch (e: Exception) {
+                                scope.launch {
+                                    snackbarHostState.showSnackbar("No app to open this file")
+                                }
+                            }
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Filled.OpenInNew, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Open File")
+                    }
+                }
+            },
+            dismissButton = {
+                OutlinedButton(
+                    onClick = { previewUpload = null },
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text("Close")
+                }
+            },
+            shape = RoundedCornerShape(24.dp),
+            containerColor = MaterialTheme.colorScheme.surface
+        )
+    }
+
     // Scaffold provides the screen layout + floating action button placement
     Scaffold(
         // ── FLOATING ACTION BUTTON ─────────────────────────────────
@@ -133,7 +243,7 @@ fun UploadsScreen(
         floatingActionButton = {
             FloatingActionButton(
                 onClick = {
-                    filePickerLauncher.launch("*/*")
+                    filePickerLauncher.launch(arrayOf("*/*"))
                 },
                 containerColor = PrimaryBlue,
                 contentColor = Color.White
@@ -253,9 +363,11 @@ fun UploadsScreen(
                     items(filteredUploads, key = { it.id }) { upload ->
                         UploadCard(
                             upload = upload,
+                            onClick = { previewUpload = upload },
                             onDelete = {
                                 val name = upload.fileName
                                 uploads.remove(upload)
+                                viewModel.saveUploads()
                                 scope.launch {
                                     snackbarHostState.showSnackbar(
                                         message = "\"$name\" deleted",
@@ -300,12 +412,13 @@ fun NoteHubFilterChip(
 @Composable
 fun UploadCard(
     upload: Upload,
+    onClick: () -> Unit,
     onDelete: () -> Unit = {}
 ) {
     var showMenu by remember { mutableStateOf(false) }
 
     Card(
-        onClick = { /* Handle file open */ },
+        onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(

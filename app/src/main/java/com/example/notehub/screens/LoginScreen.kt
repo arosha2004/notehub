@@ -5,6 +5,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -27,11 +28,17 @@ import com.example.notehub.data.AuthResult
 import com.example.notehub.data.AuthService
 import com.example.notehub.ui.components.NoteHubTextField
 import com.example.notehub.ui.theme.*
+import com.example.notehub.utils.NetworkMonitor
 import androidx.compose.ui.tooling.preview.Preview
 import kotlinx.coroutines.launch
 
 /**
- * LoginScreen — A premium authentication screen.
+ * LoginScreen — Smart authentication screen with automatic online/offline detection.
+ *
+ * - Online  → authenticates against the SSP XAMPP backend
+ * - Offline → enters the app in read-only cache mode (no password check needed)
+ *
+ * No manual "Connection Settings" dialog — the app detects connectivity automatically.
  */
 @Composable
 fun LoginScreen(
@@ -43,9 +50,18 @@ fun LoginScreen(
     var passwordVisible by remember { mutableStateOf(false) }
     var isLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
-    
+
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
+
+    // ── Live network state ──────────────────────────────────────────
+    val isOnline by NetworkMonitor.observeNetwork()
+        .collectAsState(initial = NetworkMonitor.isOnline())
+
+    // Online → normal green badge; Offline → amber badge + helper text
+    val statusColor  = if (isOnline) Color(0xFF4CAF50) else Color(0xFFF59E0B)
+    val statusLabel  = if (isOnline) "Online"         else "Offline"
+    val statusIcon   = if (isOnline) Icons.Filled.Wifi else Icons.Filled.WifiOff
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -65,13 +81,50 @@ fun LoginScreen(
                 ),
             contentAlignment = Alignment.Center
         ) {
+
+            // ── Network status pill (top-right corner) ──────────────
+            Surface(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(top = 52.dp, end = 20.dp),
+                shape = RoundedCornerShape(50),
+                color = statusColor.copy(alpha = 0.12f),
+                tonalElevation = 0.dp
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // Pulsing dot
+                    Box(
+                        modifier = Modifier
+                            .size(8.dp)
+                            .background(statusColor, CircleShape)
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Icon(
+                        imageVector = statusIcon,
+                        contentDescription = null,
+                        tint = statusColor,
+                        modifier = Modifier.size(14.dp)
+                    )
+                    Spacer(Modifier.width(4.dp))
+                    Text(
+                        text = statusLabel,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = statusColor
+                    )
+                }
+            }
+
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 28.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // LOGO SECTION
+                // ── LOGO ────────────────────────────────────────────
                 Surface(
                     modifier = Modifier.size(90.dp),
                     shape = RoundedCornerShape(24.dp),
@@ -96,24 +149,26 @@ fun LoginScreen(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(32.dp))
+                Spacer(modifier = Modifier.height(28.dp))
 
                 Text(
                     text = "Welcome Back",
                     fontSize = 32.sp,
                     fontWeight = FontWeight.ExtraBold,
-                    color = TextPrimary,
+                    color = MaterialTheme.colorScheme.onBackground,
                     letterSpacing = (-1).sp
                 )
 
                 Text(
-                    text = "Sign in to access your notes",
-                    fontSize = 16.sp,
-                    color = TextSecondary,
-                    modifier = Modifier.padding(top = 8.dp, bottom = 48.dp)
+                    text = if (isOnline) "Sign in to access your notes"
+                           else "You're offline — tap Sign In to continue with cached notes",
+                    fontSize = 14.sp,
+                    color = if (isOnline) TextSecondary else Color(0xFFF59E0B),
+                    modifier = Modifier.padding(top = 8.dp, bottom = 36.dp),
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
                 )
 
-                // LOGIN CARD
+                // ── LOGIN CARD ───────────────────────────────────────
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(32.dp),
@@ -125,7 +180,49 @@ fun LoginScreen(
                             .fillMaxWidth()
                             .padding(28.dp)
                     ) {
-                        // ERROR ALERT
+
+                        // ── OFFLINE INFO BANNER ──────────────────────
+                        AnimatedVisibility(
+                            visible = !isOnline,
+                            enter = expandVertically() + fadeIn(),
+                            exit = shrinkVertically() + fadeOut()
+                        ) {
+                            Surface(
+                                color = Color(0xFFF59E0B).copy(alpha = 0.1f),
+                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier
+                                    .padding(bottom = 20.dp)
+                                    .fillMaxWidth()
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(12.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        Icons.Filled.WifiOff,
+                                        contentDescription = null,
+                                        tint = Color(0xFFF59E0B),
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                    Spacer(Modifier.width(12.dp))
+                                    Column {
+                                        Text(
+                                            text = "No Internet Connection",
+                                            color = Color(0xFFF59E0B),
+                                            fontSize = 13.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                        Text(
+                                            text = "You can still access your cached notes offline.",
+                                            color = Color(0xFFF59E0B).copy(alpha = 0.8f),
+                                            fontSize = 11.sp
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        // ── ERROR ALERT ──────────────────────────────
                         AnimatedVisibility(
                             visible = errorMessage != null,
                             enter = expandVertically() + fadeIn(),
@@ -135,7 +232,7 @@ fun LoginScreen(
                                 Surface(
                                     color = ErrorRed.copy(alpha = 0.1f),
                                     shape = RoundedCornerShape(12.dp),
-                                    modifier = Modifier.padding(bottom = 24.dp).fillMaxWidth()
+                                    modifier = Modifier.padding(bottom = 20.dp).fillMaxWidth()
                                 ) {
                                     Row(
                                         modifier = Modifier.padding(12.dp),
@@ -149,62 +246,60 @@ fun LoginScreen(
                             }
                         }
 
-                        // EMAIL FIELD
-                        NoteHubTextField(
-                            value = email,
-                            onValueChange = { 
-                                email = it
-                                errorMessage = null
-                            },
-                            label = "Email Address",
-                            placeholder = "you@example.com",
-                            leadingIcon = Icons.Filled.Email,
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email)
-                        )
-
-                        Spacer(modifier = Modifier.height(20.dp))
-
-                        // PASSWORD FIELD
-                        NoteHubTextField(
-                            value = password,
-                            onValueChange = { 
-                                password = it
-                                errorMessage = null
-                            },
-                            label = "Password",
-                            placeholder = "••••••••",
-                            leadingIcon = Icons.Filled.Lock,
-                            visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                            trailingIcon = {
-                                IconButton(onClick = { passwordVisible = !passwordVisible }) {
-                                    Icon(
-                                        imageVector = if (passwordVisible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff,
-                                        contentDescription = null,
-                                        tint = IconSecondary
-                                    )
-                                }
+                        // ── EMAIL FIELD (hidden when offline) ────────
+                        AnimatedVisibility(
+                            visible = isOnline,
+                            enter = expandVertically() + fadeIn(),
+                            exit = shrinkVertically() + fadeOut()
+                        ) {
+                            Column {
+                                NoteHubTextField(
+                                    value = email,
+                                    onValueChange = {
+                                        email = it
+                                        errorMessage = null
+                                    },
+                                    label = "Email Address",
+                                    placeholder = "you@example.com",
+                                    leadingIcon = Icons.Filled.Email,
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email)
+                                )
+                                Spacer(modifier = Modifier.height(20.dp))
                             }
-                        )
+                        }
 
-                        Text(
-                            text = "Forgot Password?",
-                            fontSize = 14.sp,
-                            color = PrimaryBlue,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier
-                                .align(Alignment.End)
-                                .padding(top = 12.dp)
-                                .clickable {
-                                    scope.launch {
-                                        snackbarHostState.showSnackbar("Password reset coming soon!")
+                        // ── PASSWORD FIELD (hidden when offline) ─────
+                        AnimatedVisibility(
+                            visible = isOnline,
+                            enter = expandVertically() + fadeIn(),
+                            exit = shrinkVertically() + fadeOut()
+                        ) {
+                            NoteHubTextField(
+                                value = password,
+                                onValueChange = {
+                                    password = it
+                                    errorMessage = null
+                                },
+                                label = "Password",
+                                placeholder = "••••••••",
+                                leadingIcon = Icons.Filled.Lock,
+                                visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                                trailingIcon = {
+                                    IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                                        Icon(
+                                            imageVector = if (passwordVisible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff,
+                                            contentDescription = null,
+                                            tint = IconSecondary
+                                        )
                                     }
                                 }
-                        )
+                            )
+                        }
 
-                        Spacer(modifier = Modifier.height(32.dp))
+                        Spacer(modifier = Modifier.height(28.dp))
 
-                        // SIGN IN BUTTON
+                        // ── SIGN IN BUTTON ───────────────────────────
                         Button(
                             onClick = {
                                 scope.launch {
@@ -225,7 +320,7 @@ fun LoginScreen(
                                 .height(56.dp),
                             shape = RoundedCornerShape(16.dp),
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = PrimaryBlue,
+                                containerColor = if (isOnline) PrimaryBlue else Color(0xFFF59E0B),
                                 contentColor = Color.White
                             ),
                             enabled = !isLoading
@@ -237,33 +332,50 @@ fun LoginScreen(
                                     strokeWidth = 3.dp
                                 )
                             } else {
-                                Text(
-                                    text = "Sign In",
-                                    fontSize = 17.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.Center
+                                ) {
+                                    Icon(
+                                        imageVector = if (isOnline) Icons.Filled.Login else Icons.Filled.CloudOff,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                    Spacer(Modifier.width(8.dp))
+                                    Text(
+                                        text = if (isOnline) "Sign In" else "Continue Offline",
+                                        fontSize = 17.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
                             }
                         }
                     }
                 }
 
-                // FOOTER
-                Row(
-                    modifier = Modifier.padding(top = 32.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                // ── FOOTER ───────────────────────────────────────────
+                AnimatedVisibility(
+                    visible = isOnline,
+                    enter = fadeIn(),
+                    exit = fadeOut()
                 ) {
-                    Text(
-                        text = "New to NoteHub? ",
-                        fontSize = 15.sp,
-                        color = TextSecondary
-                    )
-                    Text(
-                        text = "Create Account",
-                        fontSize = 15.sp,
-                        color = PrimaryBlue,
-                        fontWeight = FontWeight.ExtraBold,
-                        modifier = Modifier.clickable { onNavigateToSignUp() }
-                    )
+                    Row(
+                        modifier = Modifier.padding(top = 32.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "New to NoteHub? ",
+                            fontSize = 15.sp,
+                            color = TextSecondary
+                        )
+                        Text(
+                            text = "Create Account",
+                            fontSize = 15.sp,
+                            color = PrimaryBlue,
+                            fontWeight = FontWeight.ExtraBold,
+                            modifier = Modifier.clickable { onNavigateToSignUp() }
+                        )
+                    }
                 }
             }
         }

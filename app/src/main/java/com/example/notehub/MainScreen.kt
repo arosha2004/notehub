@@ -118,6 +118,7 @@ fun AppNavHost(
         composable(Screen.Login.route) {
             LoginScreen(
                 onLoginSuccess = {
+                    sharedViewModel.fetchNotes()
                     navController.navigate(Screen.Dashboard.route) {
                         popUpTo(Screen.Login.route) { inclusive = true }
                     }
@@ -131,6 +132,7 @@ fun AppNavHost(
         composable(Screen.SignUp.route) {
             SignUpScreen(
                 onSignUpSuccess = {
+                    sharedViewModel.fetchNotes()
                     navController.navigate(Screen.Dashboard.route) {
                         popUpTo(Screen.Login.route) { inclusive = true }
                     }

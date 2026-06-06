@@ -1,0 +1,54 @@
+[
+  {
+    "id": 201,
+    "title": "Galle Face Green Sunset Spot",
+    "description": "Great location to catch the sunset. Ideal place to review design proposals or read book chapters.",
+    "latitude": 6.9270,
+    "longitude": 79.8400,
+    "address": "Galle Face Green, Colombo 03, Sri Lanka",
+    "date": "2026-05-18",
+    "category": "Personal",
+    "color_hex": "#6366F1",
+    "is_secured": 0,
+    "security_password": null
+  },
+  {
+    "id": 202,
+    "title": "Colombo Office - Standup Meeting",
+    "description": "Standup at 9 AM daily. Bring project documents and sprint boards.",
+    "latitude": 6.9285,
+    "longitude": 79.8650,
+    "address": "Trace Expert City, Maradana Rd, Colombo 01000",
+    "date": "2026-05-19",
+    "category": "Work",
+    "color_hex": "#10B981",
+    "is_secured": 0,
+    "security_password": null
+  },
+  {
+    "id": 203,
+    "title": "Kandy Lake View Point",
+    "description": "Peaceful lake walk. Stop here to outline the next chapters of the mobile app architecture documentation.",
+    "latitude": 7.2906,
+    "longitude": 80.6427,
+    "address": "Kandy Lake Road, Kandy, Sri Lanka",
+    "date": "2026-05-20",
+    "category": "Study",
+    "color_hex": "#3B82F6",
+    "is_secured": 1,
+    "security_password": "123"
+  },
+  {
+    "id": 204,
+    "title": "Sigiriya Fortress Hike Info",
+    "description": " Sigiriya is an ancient rock fortress. Bring lots of water and check weather reports before starting climb.",
+    "latitude": 7.9570,
+    "longitude": 80.7603,
+    "address": "Sigiriya Rock, Sigiriya 21120, Sri Lanka",
+    "date": "2026-05-21",
+    "category": "Personal",
+    "color_hex": "#8B5CF6",
+    "is_secured": 0,
+    "security_password": null
+  }
+]

@@ -14,13 +14,19 @@ import retrofit2.converter.gson.GsonConverterFactory
 import java.util.concurrent.TimeUnit
 
 /**
- * RetrofitClient — Initializes Retrofit network connection targeting the JWT backend.
- * Integrates logging, token injection, and clean AWS path/payload translation.
+ * RetrofitClient — Initializes Retrofit network connection targeting the AWS Laravel backend.
+ * Applies automatic path/payload translation for Laravel API compatibility.
+ *
+ * Base URL: http://44-197-113-192.nip.io/api/
+ * Online  → always uses AWS (Laravel) endpoint
+ * Offline → network calls are skipped by AuthService / ViewModel before reaching here
  */
 object RetrofitClient {
 
-    // Target AWS server API base URL
-    private const val BASE_URL = "http://44-197-113-192.nip.io/api/"
+    fun getBaseUrl(): String {
+        // Always target the AWS backend — XAMPP local is no longer used
+        return DataSettings.AWS_BASE_URL
+    }
 
     private fun rewriteJsonRequestBody(body: okhttp3.RequestBody?, transform: (String) -> String): okhttp3.RequestBody? {
         if (body == null) return null
@@ -43,7 +49,8 @@ object RetrofitClient {
     private val authInterceptor = Interceptor { chain ->
         val originalRequest = chain.request()
         val originalUrl = originalRequest.url
-        val isAws = originalUrl.host == "44-197-113-192.nip.io"
+        // isAws is always true when online (we always hit the AWS Laravel backend)
+        val isAws = DataSettings.isAwsMode()
 
         val requestBuilder = originalRequest.newBuilder()
             .header("Content-Type", "application/json")
@@ -182,11 +189,13 @@ object RetrofitClient {
             var rewrittenBodyStr = originalBodyStr
             var rewrittenCode = responseCode
 
-            if (response.isSuccessful || responseCode == 422 || responseCode == 201 || responseCode == 204) {
+            // Handle all responses — success, validation errors (422), auth errors (401), etc.
+            if (true) {
                 try {
                     when (rewrittenPath) {
                         "login", "register" -> {
                             if (responseCode == 200 || responseCode == 201) {
+                                // ── SUCCESS: parse Laravel response and rewrite to our ApiResponse format ──
                                 val json = JSONObject(originalBodyStr)
                                 val accessToken = json.optString("access_token", "")
                                 if (accessToken.isNotEmpty()) {
@@ -196,6 +205,14 @@ object RetrofitClient {
                                 val userId = userObj?.optInt("id", 0) ?: 0
                                 val userEmail = userObj?.optString("email", "") ?: ""
                                 val userName = userObj?.optString("name", "") ?: userObj?.optString("first_name", "") ?: ""
+
+                                // Save user identity — detects if a different account just logged in
+                                val isAccountSwitch = TokenManager.saveUser(userEmail, userName, userId)
+                                if (isAccountSwitch) {
+                                    Log.w("RetrofitClient", "Account switch detected! New user: $userEmail")
+                                } else {
+                                    Log.d("RetrofitClient", "Auth success for user: $userEmail")
+                                }
 
                                 if (rewrittenPath == "login") {
                                     val newUserJson = JSONObject()
@@ -219,15 +236,55 @@ object RetrofitClient {
                                     val wrapper = JSONObject()
                                     wrapper.put("success", true)
                                     wrapper.put("message", "Registration successful")
-                                    
                                     val dataJson = JSONObject()
                                     dataJson.put("user_id", userId)
                                     dataJson.put("redirect", "")
-                                    
                                     wrapper.put("data", dataJson)
-
                                     rewrittenBodyStr = wrapper.toString()
                                 }
+                                rewrittenCode = 200
+
+                            } else {
+                                // ── ERROR (401 wrong password, 422 validation, 500, etc.) ──
+                                // Parse Laravel's error body and convert to a clean success:false response
+                                // so Retrofit can deserialize it and AuthService shows a readable message.
+                                val errorMessage = try {
+                                    val json = JSONObject(originalBodyStr)
+                                    when {
+                                        // Laravel validation errors: {"message":"...","errors":{"field":["msg"]}}
+                                        json.has("errors") -> {
+                                            val errors = json.optJSONObject("errors")
+                                            val firstKey = errors?.keys()?.next()
+                                            val firstArr = if (firstKey != null) errors?.optJSONArray(firstKey) else null
+                                            firstArr?.optString(0)
+                                                ?: json.optString("message", "Invalid credentials")
+                                        }
+                                        // Simple message field
+                                        json.has("message") -> json.optString("message", "Login failed")
+                                        // Fallback
+                                        else -> when (responseCode) {
+                                            401 -> "Invalid email or password"
+                                            422 -> "Please check your email and password"
+                                            429 -> "Too many attempts. Please try again later"
+                                            500 -> "Server error. Please try again"
+                                            else -> "Login failed (error $responseCode)"
+                                        }
+                                    }
+                                } catch (parseEx: Exception) {
+                                    when (responseCode) {
+                                        401 -> "Invalid email or password"
+                                        422 -> "Please check your email and password"
+                                        else -> "Login failed. Please try again"
+                                    }
+                                }
+
+                                // Rewrite as success:false with HTTP 200 so Retrofit can parse it
+                                val wrapper = JSONObject()
+                                wrapper.put("success", false)
+                                wrapper.put("message", errorMessage)
+                                wrapper.put("data", JSONObject.NULL)
+                                rewrittenBodyStr = wrapper.toString()
+                                rewrittenCode = 200  // Return 200 so Retrofit doesn't throw HttpException
                             }
                         }
                         "list" -> {
@@ -289,6 +346,32 @@ object RetrofitClient {
                                 rewrittenCode = 200
                             }
                         }
+                        else -> {
+                            // Global fallback: any unhandled error response → clean success:false
+                            if (!response.isSuccessful && responseCode != 204) {
+                                try {
+                                    val json = JSONObject(originalBodyStr)
+                                    val msg = when {
+                                        json.has("errors") -> {
+                                            val errors = json.optJSONObject("errors")
+                                            val firstKey = errors?.keys()?.next()
+                                            errors?.optJSONArray(firstKey)?.optString(0)
+                                                ?: json.optString("message", "Request failed")
+                                        }
+                                        json.has("message") -> json.optString("message", "Request failed")
+                                        else -> "Request failed (error $responseCode)"
+                                    }
+                                    val wrapper = JSONObject()
+                                    wrapper.put("success", false)
+                                    wrapper.put("message", msg)
+                                    wrapper.put("data", JSONObject.NULL)
+                                    rewrittenBodyStr = wrapper.toString()
+                                    rewrittenCode = 200
+                                } catch (fe: Exception) {
+                                    Log.e("RetrofitClient", "Failed to parse error body", fe)
+                                }
+                            }
+                        }
                     }
                 } catch (e: Exception) {
                     Log.e("RetrofitClient", "Failed to rewrite AWS response body", e)
@@ -321,12 +404,21 @@ object RetrofitClient {
         })
         .build()
 
-    val api: LocationNotesApi by lazy {
-        Retrofit.Builder()
-            .baseUrl(BASE_URL)
-            .client(okHttpClient)
-            .addConverterFactory(GsonConverterFactory.create())
-            .build()
-            .create(LocationNotesApi::class.java)
-    }
+    private var cachedApi: LocationNotesApi? = null
+    private var lastUsedUrl: String? = null
+
+    val api: LocationNotesApi
+        get() {
+            val currentUrl = getBaseUrl()
+            if (cachedApi == null || lastUsedUrl != currentUrl) {
+                lastUsedUrl = currentUrl
+                cachedApi = Retrofit.Builder()
+                    .baseUrl(currentUrl)
+                    .client(okHttpClient)
+                    .addConverterFactory(GsonConverterFactory.create())
+                    .build()
+                    .create(LocationNotesApi::class.java)
+            }
+            return cachedApi!!
+        }
 }
