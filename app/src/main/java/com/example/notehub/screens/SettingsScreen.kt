@@ -58,6 +58,36 @@ private fun createImageFile(context: Context): File {
 private fun getUriForFile(context: Context, file: File): Uri =
     FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
 
+// Helper — copies the photo URI (gallery or camera) to a permanent internal files location
+private fun saveProfilePhoto(context: Context, userId: Int, sourceUri: Uri?): String? {
+    val dir = File(context.filesDir, "profile_photos").also { it.mkdirs() }
+    val destFile = File(dir, "profile_$userId.jpg")
+    
+    if (sourceUri == null) {
+        if (destFile.exists()) {
+            destFile.delete()
+        }
+        return null
+    }
+    
+    val destUri = Uri.fromFile(destFile)
+    if (sourceUri == destUri) {
+        return destUri.toString()
+    }
+    
+    return try {
+        context.contentResolver.openInputStream(sourceUri)?.use { inputStream ->
+            destFile.outputStream().use { outputStream ->
+                inputStream.copyTo(outputStream)
+            }
+        }
+        destUri.toString()
+    } catch (e: Exception) {
+        e.printStackTrace()
+        null
+    }
+}
+
 /**
  * SettingsScreen — full settings and profile management screen.
  *
@@ -83,8 +113,13 @@ fun SettingsScreen(
         mutableStateOf(if (!storedEmail.isNullOrEmpty()) storedEmail else "Arosha@gmail.com")
     }
 
+    val userId = TokenManager.getLoggedInUserId()
+    val storedPhotoUriString = remember(userId) { TokenManager.getLoggedInProfilePhoto(userId) }
+
     // Profile photo URI — null = show default icon drawable
-    var profilePhotoUri by remember { mutableStateOf<Uri?>(null) }
+    var profilePhotoUri by remember(userId, storedPhotoUriString) {
+        mutableStateOf(storedPhotoUriString?.let { Uri.parse(it) })
+    }
 
     // Holds the temp file URI used when taking a photo with the camera
     var cameraImageUri by remember { mutableStateOf<Uri?>(null) }
@@ -451,7 +486,12 @@ fun SettingsScreen(
                     // Shows success snackbar when tapped
                     Button(
                         onClick = {
-                            TokenManager.saveUser(email, fullName, TokenManager.getLoggedInUserId())
+                            val currentUserId = TokenManager.getLoggedInUserId()
+                            val savedPhotoUriStr = saveProfilePhoto(context, currentUserId, profilePhotoUri)
+                            TokenManager.saveProfilePhoto(currentUserId, savedPhotoUriStr)
+                            profilePhotoUri = savedPhotoUriStr?.let { Uri.parse(it) }
+
+                            TokenManager.saveUser(email, fullName, currentUserId)
                             scope.launch {
                                 snackbarHostState.showSnackbar(
                                     message = "Profile updated successfully!",

@@ -68,6 +68,22 @@ object TokenManager {
 
     fun getLoggedInUserId(): Int = prefs?.getInt(KEY_USER_ID, 0) ?: 0
 
+    // ── Profile Photo ──────────────────────────────────────────────────────
+
+    fun saveProfilePhoto(userId: Int, uriString: String?) {
+        val key = "profile_photo_uri_$userId"
+        if (uriString != null) {
+            prefs?.edit()?.putString(key, uriString)?.apply()
+        } else {
+            prefs?.edit()?.remove(key)?.apply()
+        }
+    }
+
+    fun getLoggedInProfilePhoto(userId: Int): String? {
+        val key = "profile_photo_uri_$userId"
+        return prefs?.getString(key, null)
+    }
+
     /** Clears ALL auth data — called on logout. */
     fun clearAll() {
         prefs?.edit()
