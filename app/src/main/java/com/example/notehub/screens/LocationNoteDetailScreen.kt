@@ -1,5 +1,6 @@
 package com.example.notehub.screens
 
+import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.background
@@ -284,15 +285,14 @@ fun LocationNoteDetailScreen(
                     // "Get Directions" trigger
                     Button(
                         onClick = {
-                            val uri = Uri.parse("geo:${note.latitude},${note.longitude}?q=${note.latitude},${note.longitude}(${Uri.encode(note.title)})")
-                            val mapIntent = Intent(Intent.ACTION_VIEW, uri).apply {
-                                setPackage("com.google.android.apps.maps")
-                            }
-                            // Fallback if official Google Maps app is not installed
-                            if (mapIntent.resolveActivity(context.packageManager) != null) {
+                            val directionsUri = Uri.parse("https://www.google.com/maps/dir/?api=1&destination=${note.latitude},${note.longitude}")
+                            try {
+                                val mapIntent = Intent(Intent.ACTION_VIEW, directionsUri).apply {
+                                    setPackage("com.google.android.apps.maps")
+                                }
                                 context.startActivity(mapIntent)
-                            } else {
-                                val fallbackIntent = Intent(Intent.ACTION_VIEW, uri)
+                            } catch (e: ActivityNotFoundException) {
+                                val fallbackIntent = Intent(Intent.ACTION_VIEW, directionsUri)
                                 context.startActivity(fallbackIntent)
                             }
                         },

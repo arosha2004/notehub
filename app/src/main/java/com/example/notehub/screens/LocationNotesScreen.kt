@@ -4,6 +4,9 @@ import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.pm.PackageManager
+import android.content.Intent
+import android.content.ActivityNotFoundException
+import android.net.Uri
 import android.location.Location
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -506,6 +509,7 @@ fun LocationNotePreviewCard(
     onCloseClick: () -> Unit
 ) {
     val categoryColor = parseHexColor(note.colorHex)
+    val context = LocalContext.current
 
     Card(
         modifier = Modifier
@@ -608,20 +612,52 @@ fun LocationNotePreviewCard(
 
             Spacer(modifier = Modifier.height(14.dp))
 
-            Button(
-                onClick = onDetailsClick,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(44.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = PrimaryBlue,
-                    contentColor = Color.White
-                ),
-                shape = RoundedCornerShape(12.dp)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Text("Open Note Details", fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                Spacer(modifier = Modifier.width(8.dp))
-                Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, modifier = Modifier.size(16.dp))
+                Button(
+                    onClick = onDetailsClick,
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(44.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = PrimaryBlue,
+                        contentColor = Color.White
+                    ),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text("Open Details", fontWeight = FontWeight.Bold, fontSize = 13.sp, maxLines = 1)
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, modifier = Modifier.size(14.dp))
+                }
+
+                Button(
+                    onClick = {
+                        val directionsUri = Uri.parse("https://www.google.com/maps/dir/?api=1&destination=${note.latitude},${note.longitude}")
+                        try {
+                            val mapIntent = Intent(Intent.ACTION_VIEW, directionsUri).apply {
+                                setPackage("com.google.android.apps.maps")
+                            }
+                            context.startActivity(mapIntent)
+                        } catch (e: ActivityNotFoundException) {
+                            val fallbackIntent = Intent(Intent.ACTION_VIEW, directionsUri)
+                            context.startActivity(fallbackIntent)
+                        }
+                    },
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(44.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = SuccessGreen,
+                        contentColor = Color.White
+                    ),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Icon(Icons.Filled.Directions, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Directions", fontWeight = FontWeight.Bold, fontSize = 13.sp, maxLines = 1)
+                }
             }
         }
     }
