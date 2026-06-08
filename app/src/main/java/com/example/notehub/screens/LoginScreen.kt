@@ -1,4 +1,4 @@
-package com.example.notehub.screens
+﻿package com.example.notehub.screens
 
 import androidx.compose.animation.*
 import androidx.compose.foundation.Image
@@ -47,7 +47,7 @@ fun LoginScreen(
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
 
-    // ── Live network state ──────────────────────────────────────────
+    // Live network state
     val isOnline by NetworkMonitor.observeNetwork()
         .collectAsState(initial = NetworkMonitor.isOnline())
 
@@ -86,7 +86,7 @@ fun LoginScreen(
             contentAlignment = Alignment.Center
         ) {
 
-            // ── Network status pill (top-right corner) ──────────────
+            // Network status pill (top-right corner)
             Surface(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
@@ -128,7 +128,7 @@ fun LoginScreen(
                     .padding(horizontal = 28.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // ── LOGO ────────────────────────────────────────────
+                // LOGO
                 Surface(
                     modifier = Modifier.size(90.dp),
                     shape = RoundedCornerShape(24.dp),
@@ -172,7 +172,7 @@ fun LoginScreen(
                     textAlign = androidx.compose.ui.text.style.TextAlign.Center
                 )
 
-                // ── LOGIN CARD ───────────────────────────────────────
+                // LOGIN CARD
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(32.dp),
@@ -185,7 +185,7 @@ fun LoginScreen(
                             .padding(28.dp)
                     ) {
 
-                        // ── OFFLINE INFO BANNER ──────────────────────
+                        // OFFLINE INFO BANNER
                         AnimatedVisibility(
                             visible = !isOnline,
                             enter = expandVertically() + fadeIn(),
@@ -290,7 +290,7 @@ fun LoginScreen(
                             }
                         }
 
-                        // ── ERROR ALERT ──────────────────────────────
+                        // ERROR ALERT
                         AnimatedVisibility(
                             visible = errorMessage != null,
                             enter = expandVertically() + fadeIn(),
@@ -314,7 +314,7 @@ fun LoginScreen(
                             }
                         }
 
-                        // ── EMAIL FIELD (hidden when offline) ────────
+                        // EMAIL FIELD (hidden when offline)
                         AnimatedVisibility(
                             visible = isOnline,
                             enter = expandVertically() + fadeIn(),
@@ -336,7 +336,7 @@ fun LoginScreen(
                             }
                         }
 
-                        // ── PASSWORD FIELD (hidden when offline) ─────
+                        // PASSWORD FIELD (hidden when offline)
                         AnimatedVisibility(
                             visible = isOnline,
                             enter = expandVertically() + fadeIn(),
@@ -367,7 +367,7 @@ fun LoginScreen(
 
                         Spacer(modifier = Modifier.height(28.dp))
 
-                        // ── SIGN IN BUTTON ───────────────────────────
+                        // SIGN IN BUTTON
                         Button(
                             onClick = {
                                 scope.launch {
@@ -421,7 +421,7 @@ fun LoginScreen(
                     }
                 }
 
-                // ── FOOTER ───────────────────────────────────────────
+                // FOOTER
                 AnimatedVisibility(
                     visible = isOnline,
                     enter = fadeIn(),

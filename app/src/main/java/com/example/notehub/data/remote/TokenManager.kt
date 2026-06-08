@@ -1,4 +1,4 @@
-package com.example.notehub.data.remote
+﻿package com.example.notehub.data.remote
 
 import android.content.Context
 import android.content.SharedPreferences
@@ -26,7 +26,7 @@ object TokenManager {
         prefs = context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
     }
 
-    // ── Token ─────────────────────────────────────────────────────────────
+    // Token
 
     fun saveToken(token: String) {
         prefs?.edit()?.putString(KEY_TOKEN, token)?.apply()
@@ -40,7 +40,7 @@ object TokenManager {
 
     fun isAuthenticated(): Boolean = !getToken().isNullOrEmpty()
 
-    // ── User identity ──────────────────────────────────────────────────────
+    // User identity
 
     /**
      * Saves the identity of the successfully-logged-in user.
@@ -68,7 +68,7 @@ object TokenManager {
 
     fun getLoggedInUserId(): Int = prefs?.getInt(KEY_USER_ID, 0) ?: 0
 
-    // ── Profile Photo ──────────────────────────────────────────────────────
+    // Profile Photo
 
     fun saveProfilePhoto(userId: Int, uriString: String?) {
         val key = "profile_photo_uri_$userId"

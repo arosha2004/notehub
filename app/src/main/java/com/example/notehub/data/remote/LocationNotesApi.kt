@@ -1,4 +1,4 @@
-package com.example.notehub.data.remote
+﻿package com.example.notehub.data.remote
 
 import retrofit2.Response
 import retrofit2.http.*
@@ -27,7 +27,7 @@ interface LocationNotesApi {
     suspend fun register(@Body request: RegisterRequest): ApiResponse<RegisterResponse>
 }
 
-// ── RESPONSE WRAPPERS & DATA TRANSFER OBJECTS ───────────────────
+// RESPONSE WRAPPERS & DATA TRANSFER OBJECTS
 
 data class ApiResponse<T>(
     val success: Boolean,

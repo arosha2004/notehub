@@ -1,4 +1,4 @@
-package com.example.notehub.screens
+﻿package com.example.notehub.screens
 
 import androidx.compose.animation.*
 import androidx.compose.foundation.background
@@ -44,7 +44,7 @@ fun NotesScreen(
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
 
-    // ── Search state ──────────────────────────────────────────────────
+    // Search state
     var searchQuery by remember { mutableStateOf("") }
 
     // Security auth states
@@ -101,7 +101,7 @@ fun NotesScreen(
                 .background(MaterialTheme.colorScheme.background)
                 .padding(16.dp)
         ) {
-            // ── Header ─────────────────────────────────────────────────
+            // Header
             Text(
                 text = "My Notes",
                 fontSize = 28.sp,
@@ -121,7 +121,7 @@ fun NotesScreen(
                 modifier = Modifier.padding(bottom = 16.dp)
             )
 
-            // ── SEARCH BAR ──────────────────────────────────────────────
+            // SEARCH BAR
             OutlinedTextField(
                 value = searchQuery,
                 onValueChange = { searchQuery = it },
@@ -209,7 +209,7 @@ fun NotesScreen(
             } else if (notesList.isEmpty()) {
                 EmptyNotesView()
             } else if (filteredNotes.isEmpty()) {
-                // ── No search results ──────────────────────────────────
+                // No search results
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Icon(

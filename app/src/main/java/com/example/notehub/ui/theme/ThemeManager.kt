@@ -1,4 +1,4 @@
-package com.example.notehub.ui.theme
+﻿package com.example.notehub.ui.theme
 
 import android.content.Context
 import android.content.SharedPreferences
@@ -18,12 +18,12 @@ object ThemeManager {
 
     private var prefs: SharedPreferences? = null
 
-    // ── THEME SELECTION STATE ──────────────────────────────────────
+    // THEME SELECTION STATE
     private var _currentTheme by mutableStateOf(AppTheme.INDIGO)
     val currentTheme: AppTheme
         get() = _currentTheme
 
-    // ── DARK MODE STATE ───────────────────────────────────────────
+    // DARK MODE STATE
     private var _hasUserSetDarkModeManualPref by mutableStateOf(false)
     val hasUserSetDarkModeManualPref: Boolean
         get() = _hasUserSetDarkModeManualPref

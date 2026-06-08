@@ -1,4 +1,4 @@
-package com.example.notehub.screens
+﻿package com.example.notehub.screens
 
 import androidx.compose.animation.*
 import androidx.compose.foundation.Image
@@ -40,7 +40,7 @@ fun SignUpScreen(
     onSignUpSuccess: () -> Unit,
     onNavigateToLogin: () -> Unit
 ) {
-    // ── STATE ──────────────────────────────────────────────────────
+    // STATE
     var fullName by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
@@ -53,14 +53,14 @@ fun SignUpScreen(
     val scope = rememberCoroutineScope()
     val scrollState = rememberScrollState()
 
-    // ── Live network state ──────────────────────────────────────────
+    // Live network state
     val isOnline by NetworkMonitor.observeNetwork()
         .collectAsState(initial = NetworkMonitor.isOnline())
     val statusColor = if (isOnline) Color(0xFF4CAF50) else Color(0xFFF59E0B)
     val statusIcon  = if (isOnline) Icons.Filled.Wifi else Icons.Filled.WifiOff
     val statusLabel = if (isOnline) "Online" else "Offline"
 
-    // ── UI LAYOUT ──────────────────────────────────────────────────
+    // UI LAYOUT
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -75,7 +75,7 @@ fun SignUpScreen(
             ),
         contentAlignment = Alignment.Center
     ) {
-        // ── Network status pill (top-right) ─────────────────────────
+        // Network status pill (top-right)
         Surface(
             modifier = Modifier
                 .align(Alignment.TopEnd)

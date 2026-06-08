@@ -1,4 +1,4 @@
-package com.example.notehub.screens
+﻿package com.example.notehub.screens
 
 import android.Manifest
 import android.content.pm.PackageManager
@@ -212,7 +212,7 @@ fun AddNoteScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(16.dp)
         ) {
-            // ── PRIMARY TEXT INPUTS (TITLE & CONTENT) ───────────────────
+            // PRIMARY TEXT INPUTS (TITLE & CONTENT)
             OutlinedTextField(
                 value = title,
                 onValueChange = { title = it },
@@ -255,7 +255,7 @@ fun AddNoteScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // ── NOTE CONFIGURATION CARD ────────────────────────────────
+            // NOTE CONFIGURATION CARD
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),

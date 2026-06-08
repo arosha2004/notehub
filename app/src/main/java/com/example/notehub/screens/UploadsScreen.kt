@@ -1,4 +1,4 @@
-package com.example.notehub.screens
+﻿package com.example.notehub.screens
 
 import android.content.Context
 import android.content.Intent
@@ -238,7 +238,7 @@ fun UploadsScreen(
 
     // Scaffold provides the screen layout + floating action button placement
     Scaffold(
-        // ── FLOATING ACTION BUTTON ─────────────────────────────────
+        // FLOATING ACTION BUTTON
         // Blue upload (⬆) button in the bottom right corner
         floatingActionButton = {
             FloatingActionButton(

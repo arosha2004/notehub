@@ -1,4 +1,4 @@
-package com.example.notehub.screens
+﻿package com.example.notehub.screens
 
 import android.Manifest
 import android.content.Context
@@ -97,7 +97,7 @@ fun SettingsScreen(
 ) {
     val context = LocalContext.current
 
-    // ── STATE VARIABLES ────────────────────────────────────────────
+    // STATE VARIABLES
 
     val storedName = TokenManager.getLoggedInName()
     val storedEmail = TokenManager.getLoggedInEmail()
@@ -154,7 +154,7 @@ fun SettingsScreen(
         }
     }
 
-    // ── ACTIVITY RESULT LAUNCHERS ──────────────────────────────────
+    // ACTIVITY RESULT LAUNCHERS
 
     val galleryLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()

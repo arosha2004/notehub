@@ -1,4 +1,4 @@
-package com.example.notehub.ui.viewmodel
+﻿package com.example.notehub.ui.viewmodel
 
 import android.annotation.SuppressLint
 import android.app.Application
@@ -52,7 +52,7 @@ class LocationNotesViewModel(application: Application) : AndroidViewModel(applic
     private val geofenceManager = GeofenceManager(application)
     private val fusedLocationClient = LocationServices.getFusedLocationProviderClient(application)
 
-    // ── STATE VARIABLES ───────────────────────────────────────────
+    // STATE VARIABLES
     
     private val gson = Gson()
     
@@ -157,7 +157,7 @@ class LocationNotesViewModel(application: Application) : AndroidViewModel(applic
         fetchNotes()
     }
 
-    // ── ACTIONS ───────────────────────────────────────────────────
+    // ACTIONS
 
     /**
      * Loads location notes and schedules/refreshes geofences.

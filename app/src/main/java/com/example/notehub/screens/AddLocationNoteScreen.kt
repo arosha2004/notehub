@@ -1,4 +1,4 @@
-package com.example.notehub.screens
+﻿package com.example.notehub.screens
 
 import android.Manifest
 import android.content.pm.PackageManager
@@ -262,7 +262,7 @@ fun AddLocationNoteScreen(
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            // ── SECURE NOTE TOGGLE ─────────────────────────────────────
+            // SECURE NOTE TOGGLE
             Row(
                 modifier = Modifier
                     .fillMaxWidth()

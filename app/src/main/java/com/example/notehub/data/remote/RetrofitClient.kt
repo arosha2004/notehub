@@ -1,4 +1,4 @@
-package com.example.notehub.data.remote
+﻿package com.example.notehub.data.remote
 
 import android.util.Log
 import okhttp3.Interceptor
@@ -185,7 +185,7 @@ object RetrofitClient {
                     when (rewrittenPath) {
                         "login", "register" -> {
                             if (responseCode == 200 || responseCode == 201) {
-                                // ── SUCCESS: parse Laravel response and rewrite to our ApiResponse format ──
+                                // SUCCESS: parse Laravel response and rewrite to our ApiResponse format
                                 val json = JSONObject(originalBodyStr)
                                 val accessToken = json.optString("access_token", "")
                                 if (accessToken.isNotEmpty()) {
@@ -235,7 +235,7 @@ object RetrofitClient {
                                 rewrittenCode = 200
 
                             } else {
-                                // ── ERROR (401 wrong password, 422 validation, 500, etc.) ──
+                                // ERROR (401 wrong password, 422 validation, 500, etc.)
                                 // Parse Laravel's error body and convert to a clean success:false response
                                 // so Retrofit can deserialize it and AuthService shows a readable message.
                                 val errorMessage = try {
