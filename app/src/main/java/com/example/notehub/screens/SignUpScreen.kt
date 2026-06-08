@@ -1,4 +1,31 @@
-﻿package com.example.notehub.screens
+package com.example.notehub.screens
+
+import androidx.compose.animation.*
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+package com.example.notehub.screens
 
 import androidx.compose.animation.*
 import androidx.compose.foundation.Image
@@ -31,7 +58,6 @@ import com.example.notehub.data.AuthService
 import com.example.notehub.ui.components.NoteHubTextField
 import com.example.notehub.ui.theme.*
 import com.example.notehub.utils.NetworkMonitor
-import androidx.compose.ui.tooling.preview.Preview
 import kotlinx.coroutines.launch
 
 // Premium registration screen
@@ -355,13 +381,5 @@ fun SignUpScreen(
                 )
             }
         }
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-fun SignUpScreenPreview() {
-    NoteHubTheme {
-        SignUpScreen(onSignUpSuccess = {}, onNavigateToLogin = {})
     }
 }

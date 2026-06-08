@@ -1,4 +1,4 @@
-﻿package com.example.notehub.screens
+package com.example.notehub.screens
 
 import android.Manifest
 import android.content.pm.PackageManager
@@ -45,7 +45,6 @@ import com.google.maps.android.compose.MapUiSettings
 import com.google.maps.android.compose.Marker
 import com.google.maps.android.compose.rememberCameraPositionState
 import com.google.maps.android.compose.rememberMarkerState
-import androidx.compose.ui.tooling.preview.Preview
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -573,13 +572,5 @@ fun AddNoteScreen(
                 }
             }
         }
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-fun AddNoteScreenPreview() {
-    NoteHubTheme {
-        AddNoteScreen(onNavigateBack = {})
     }
 }
