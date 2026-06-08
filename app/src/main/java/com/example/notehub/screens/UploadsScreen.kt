@@ -26,6 +26,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.notehub.ui.theme.*
+import androidx.compose.ui.tooling.preview.Preview
 import com.example.notehub.domain.model.Upload
 import com.example.notehub.ui.viewmodel.LocationNotesViewModel
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -511,5 +512,13 @@ fun UploadCard(
                 }
             }
         }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun UploadsScreenPreview() {
+    NoteHubTheme {
+        UploadsScreen()
     }
 }

@@ -29,6 +29,7 @@ import com.example.notehub.data.AuthService
 import com.example.notehub.ui.components.NoteHubTextField
 import com.example.notehub.ui.theme.*
 import com.example.notehub.utils.NetworkMonitor
+import androidx.compose.ui.tooling.preview.Preview
 import kotlinx.coroutines.launch
 
 // Smart authentication screen with automatic offline fallback
@@ -446,5 +447,13 @@ fun LoginScreen(
                 }
             }
         }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun LoginScreenPreview() {
+    NoteHubTheme {
+        LoginScreen(onLoginSuccess = {}, onNavigateToSignUp = {})
     }
 }
