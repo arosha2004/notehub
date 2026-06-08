@@ -9,54 +9,44 @@ import com.example.notehub.data.remote.TokenManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-/**
- * Result of an authentication operation.
- */
+// Result of an authentication operation
 sealed class AuthResult {
     data object Success : AuthResult()
     data class Error(val message: String) : AuthResult()
     data object Loading : AuthResult()
 }
 
-/**
- * AuthService — Handles user authentication with automatic online/offline detection.
- *
- * When the device is ONLINE  → authenticates against the AWS Laravel backend.
- * When the device is OFFLINE → allows entry in offline (read-only cache) mode.
- *
- * FIX: Now correctly handles account switching:
- *   - Registers on AWS website  → then logs in on mobile app with that email  → loads THAT user's data.
- *   - Prevents old cached account data from leaking into a newly-authenticated session.
- */
+// Handles user authentication with online/offline detection
 object AuthService {
 
-    /**
-     * Authenticates the user.
-     *
-     * Online:  validates credentials with the AWS Laravel backend.
-     * Offline: skips server call and returns Success so the user can
-     *          still view their locally-cached notes.
-     *
-     * IMPORTANT: When online, the server MUST return a valid token for the entered
-     * email/password — there is no "skip" for online mode. This ensures that a user
-     * who registered on the website and tries to log in on the mobile app gets
-     * their own account, not someone else's cached session.
-     */
+    // Authenticates the user
     suspend fun login(email: String, password: String): AuthResult = withContext(Dispatchers.IO) {
-        // Auto offline-mode: skip server call when there's no internet
         if (DataSettings.isOfflineMode()) {
-            Log.d("AuthService", "Offline mode — skipping server auth")
+            Log.d("AuthService", "Offline mode — validating against cached credentials")
+
+            val cachedEmail = TokenManager.getLoggedInEmail()
+
+            // No cached user at all — must go online to log in for the first time
+            if (cachedEmail.isNullOrEmpty()) {
+                return@withContext AuthResult.Error(
+                    "You have no offline data. Please connect to the internet to log in."
+                )
+            }
+
+            // Cached email doesn't match what was entered — block access
+            if (cachedEmail.lowercase() != email.trim().lowercase()) {
+                return@withContext AuthResult.Error(
+                    "You are offline. Only the last logged-in account ($cachedEmail) can be accessed without internet."
+                )
+            }
+
+            // Email matches the cached account — allow offline access
             return@withContext AuthResult.Success
         }
 
-        // Online: validate credentials against the SSP API.
-        // The token is saved inside RetrofitClient's interceptor upon a 200 response.
         try {
             val response = RetrofitClient.api.login(LoginRequest(email, password))
             if (response.success) {
-                // TokenManager.saveUser() was already called inside RetrofitClient's interceptor.
-                // If it returned true, that means a DIFFERENT user just logged in —
-                // the interceptor logs a warning; the ViewModel will re-fetch fresh data.
                 Log.d("AuthService", "Login successful for: $email")
                 AuthResult.Success
             } else {
@@ -72,16 +62,10 @@ object AuthService {
         }
     }
 
-    /**
-     * Registers a new user.
-     *
-     * Online:  sends registration data to the AWS Laravel backend.
-     * Offline: registration is not possible — returns an informative error.
-     */
+    // Registers a new user
     suspend fun signUp(fullName: String, email: String, password: String): AuthResult =
         withContext(Dispatchers.IO) {
             if (DataSettings.isOfflineMode()) {
-                // Cannot register without a server connection
                 return@withContext AuthResult.Error(
                     "You are offline. Please connect to the internet to create an account."
                 )
@@ -106,12 +90,9 @@ object AuthService {
             }
         }
 
-    /**
-     * Logs the user out — clears token AND user identity from SharedPreferences.
-     * This ensures the next login always authenticates from scratch.
-     */
+    // Logs the user out
     fun logout() {
         TokenManager.clearAll()
-        Log.d("AuthService", "User logged out — token and session cleared")
+        Log.d("AuthService", "User logged out")
     }
 }

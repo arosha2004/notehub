@@ -318,3 +318,12 @@ fun LocationNoteDetailScreen(
         }
     }
 }
+
+
+@androidx.compose.ui.tooling.preview.Preview(showBackground = true)
+@androidx.compose.runtime.Composable
+fun LocationNoteDetailScreenPreview() {
+    com.example.notehub.ui.theme.NoteHubTheme {
+        LocationNoteDetailScreen(noteId = 1, onNavigateBack = {})
+    }
+}

@@ -485,3 +485,12 @@ fun AddLocationNoteScreen(
         }
     }
 }
+
+
+@androidx.compose.ui.tooling.preview.Preview(showBackground = true)
+@androidx.compose.runtime.Composable
+fun AddLocationNoteScreenPreview() {
+    com.example.notehub.ui.theme.NoteHubTheme {
+        AddLocationNoteScreen(onNavigateBack = {})
+    }
+}

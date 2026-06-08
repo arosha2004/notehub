@@ -939,3 +939,12 @@ val googleMapDarkStyle = """
   }
 ]
 """.trimIndent()
+
+
+@androidx.compose.ui.tooling.preview.Preview(showBackground = true)
+@androidx.compose.runtime.Composable
+fun LocationNotesScreenPreview() {
+    com.example.notehub.ui.theme.NoteHubTheme {
+        LocationNotesScreen(onNavigateBack = {}, onAddNoteClick = {}, onNoteClick = {})
+    }
+}

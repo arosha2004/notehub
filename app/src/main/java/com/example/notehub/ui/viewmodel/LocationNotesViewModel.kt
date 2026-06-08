@@ -34,7 +34,7 @@ import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.AttachFile
 
-/** DTO for storing Upload data locally */
+// DTO for storing Upload data locally
 data class UploadDto(
     val id: Int,
     val fileName: String,
@@ -44,10 +44,7 @@ data class UploadDto(
     val uriString: String?
 )
 
-/**
- * LocationNotesViewModel — Orchestrates coordinates capture, reverse-geocoding addresses,
- * saving location notes to the repository, scheduling geofences, and filtering notes.
- */
+// Manages logic and state for location-based notes
 class LocationNotesViewModel(application: Application) : AndroidViewModel(application) {
 
     private val tag = "LocationNotesVM"

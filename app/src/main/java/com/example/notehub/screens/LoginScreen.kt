@@ -32,14 +32,7 @@ import com.example.notehub.utils.NetworkMonitor
 import androidx.compose.ui.tooling.preview.Preview
 import kotlinx.coroutines.launch
 
-/**
- * LoginScreen — Smart authentication screen with automatic online/offline detection.
- *
- * - Online  → authenticates against the SSP XAMPP backend
- * - Offline → enters the app in read-only cache mode (no password check needed)
- *
- * No manual "Connection Settings" dialog — the app detects connectivity automatically.
- */
+// Smart authentication screen with automatic offline fallback
 @Composable
 fun LoginScreen(
     onLoginSuccess: () -> Unit,
@@ -63,13 +56,24 @@ fun LoginScreen(
     val statusLabel  = if (isOnline) "Online"         else "Offline"
     val statusIcon   = if (isOnline) Icons.Filled.Wifi else Icons.Filled.WifiOff
 
+    // The email of the last successfully logged-in user (for offline mode)
+    val cachedEmail = com.example.notehub.data.remote.TokenManager.getLoggedInEmail()
+
+    // When switching to offline, pre-fill the email with the cached account
+    LaunchedEffect(isOnline) {
+        if (!isOnline && !cachedEmail.isNullOrEmpty() && email.isBlank()) {
+            email = cachedEmail
+        }
+    }
+
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         containerColor = MaterialTheme.colorScheme.background
-    ) { _ ->
+    ) { innerPadding ->
         Box(
             modifier = Modifier
                 .fillMaxSize()
+                .padding(innerPadding)
                 .background(
                     brush = Brush.verticalGradient(
                         colors = listOf(
@@ -187,36 +191,100 @@ fun LoginScreen(
                             enter = expandVertically() + fadeIn(),
                             exit = shrinkVertically() + fadeOut()
                         ) {
-                            Surface(
-                                color = Color(0xFFF59E0B).copy(alpha = 0.1f),
-                                shape = RoundedCornerShape(12.dp),
-                                modifier = Modifier
-                                    .padding(bottom = 20.dp)
-                                    .fillMaxWidth()
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(12.dp),
-                                    verticalAlignment = Alignment.CenterVertically
+                            Column(modifier = Modifier.padding(bottom = 20.dp)) {
+                                // Part 1: No internet warning
+                                Surface(
+                                    color = Color(0xFFF59E0B).copy(alpha = 0.1f),
+                                    shape = RoundedCornerShape(12.dp),
+                                    modifier = Modifier.fillMaxWidth()
                                 ) {
-                                    Icon(
-                                        Icons.Filled.WifiOff,
-                                        contentDescription = null,
-                                        tint = Color(0xFFF59E0B),
-                                        modifier = Modifier.size(20.dp)
-                                    )
-                                    Spacer(Modifier.width(12.dp))
-                                    Column {
-                                        Text(
-                                            text = "No Internet Connection",
-                                            color = Color(0xFFF59E0B),
-                                            fontSize = 13.sp,
-                                            fontWeight = FontWeight.Bold
+                                    Row(
+                                        modifier = Modifier.padding(12.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(
+                                            Icons.Filled.WifiOff,
+                                            contentDescription = null,
+                                            tint = Color(0xFFF59E0B),
+                                            modifier = Modifier.size(20.dp)
                                         )
-                                        Text(
-                                            text = "You can still access your cached notes offline.",
-                                            color = Color(0xFFF59E0B).copy(alpha = 0.8f),
-                                            fontSize = 11.sp
-                                        )
+                                        Spacer(Modifier.width(12.dp))
+                                        Column {
+                                            Text(
+                                                text = "No Internet Connection",
+                                                color = Color(0xFFF59E0B),
+                                                fontSize = 13.sp,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                            Text(
+                                                text = "You can still access your cached notes offline.",
+                                                color = Color(0xFFF59E0B).copy(alpha = 0.8f),
+                                                fontSize = 11.sp
+                                            )
+                                        }
+                                    }
+                                }
+
+                                Spacer(Modifier.height(8.dp))
+
+                                // Part 2: Show which account can be used offline
+                                if (!cachedEmail.isNullOrEmpty()) {
+                                    Surface(
+                                        color = ErrorRed.copy(alpha = 0.08f),
+                                        shape = RoundedCornerShape(12.dp),
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(12.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Icon(
+                                                Icons.Filled.AccountCircle,
+                                                contentDescription = null,
+                                                tint = ErrorRed,
+                                                modifier = Modifier.size(20.dp)
+                                            )
+                                            Spacer(Modifier.width(12.dp))
+                                            Column {
+                                                Text(
+                                                    text = "Offline Access Available",
+                                                    color = ErrorRed,
+                                                    fontSize = 12.sp,
+                                                    fontWeight = FontWeight.Bold
+                                                )
+                                                Text(
+                                                    text = "Last account: $cachedEmail",
+                                                    color = ErrorRed.copy(alpha = 0.85f),
+                                                    fontSize = 12.sp,
+                                                    fontWeight = FontWeight.Medium
+                                                )
+                                            }
+                                        }
+                                    }
+                                } else {
+                                    Surface(
+                                        color = ErrorRed.copy(alpha = 0.08f),
+                                        shape = RoundedCornerShape(12.dp),
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(12.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Icon(
+                                                Icons.Filled.Error,
+                                                contentDescription = null,
+                                                tint = ErrorRed,
+                                                modifier = Modifier.size(20.dp)
+                                            )
+                                            Spacer(Modifier.width(12.dp))
+                                            Text(
+                                                text = "No cached account found. Connect to internet to log in.",
+                                                color = ErrorRed,
+                                                fontSize = 12.sp,
+                                                fontWeight = FontWeight.Medium
+                                            )
+                                        }
                                     }
                                 }
                             }

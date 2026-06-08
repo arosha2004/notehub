@@ -29,13 +29,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.notehub.ui.theme.*
 
-/**
- * DashboardScreen — the main home screen after login.
- * Scrollable vertical layout containing: WelcomeCard, StatsGrid, QuickActionsSection.
- *
- * @param onNavigateToAddNote  Called when the user taps "Create New Note" or the "New Note" quick action
- * @param onNavigateToUploads  Called when the user taps the "Upload File" quick action
- */
+// Dashboard screen shown after login
 @Composable
 fun DashboardScreen(
     onNavigateToAddNote: () -> Unit = {},
@@ -403,5 +397,14 @@ fun QuickActionCard(
                 letterSpacing = 0.3.sp
             )
         }
+    }
+}
+
+
+@androidx.compose.ui.tooling.preview.Preview(showBackground = true)
+@androidx.compose.runtime.Composable
+fun DashboardScreenPreview() {
+    com.example.notehub.ui.theme.NoteHubTheme {
+        DashboardScreen()
     }
 }

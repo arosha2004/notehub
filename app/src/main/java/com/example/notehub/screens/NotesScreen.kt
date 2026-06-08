@@ -10,8 +10,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.NoteAdd
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -31,13 +33,7 @@ import com.example.notehub.ui.viewmodel.LocationNotesViewModel
 import com.example.notehub.domain.model.LocationNote
 import kotlinx.coroutines.launch
 
-/**
- * NotesScreen — Displays a scrollable list of notes.
- * Demonstrates: Scrollable lists (LazyColumn), Card components, and Swipe-to-delete concepts.
- *
- * @param onAddNoteClick  Called when FAB is clicked
- * @param onNoteClick     Called when a note card is clicked (Master-Detail)
- */
+// Displays a scrollable list of notes with live search
 @Composable
 fun NotesScreen(
     onAddNoteClick: () -> Unit,
@@ -47,6 +43,9 @@ fun NotesScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
+
+    // ── Search state ──────────────────────────────────────────────────
+    var searchQuery by remember { mutableStateOf("") }
 
     // Security auth states
     var activeAuthNoteId by remember { mutableStateOf<Int?>(null) }
@@ -72,6 +71,16 @@ fun NotesScreen(
         )
     }
 
+    // Filter notes based on search query (title, content, or category)
+    val filteredNotes = remember(notesList, searchQuery) {
+        if (searchQuery.isBlank()) notesList
+        else notesList.filter { note ->
+            note.title.contains(searchQuery, ignoreCase = true) ||
+            note.content.contains(searchQuery, ignoreCase = true) ||
+            note.category.contains(searchQuery, ignoreCase = true)
+        }
+    }
+
     Scaffold(
         floatingActionButton = {
             FloatingActionButton(
@@ -92,20 +101,106 @@ fun NotesScreen(
                 .background(MaterialTheme.colorScheme.background)
                 .padding(16.dp)
         ) {
-            // Header
+            // ── Header ─────────────────────────────────────────────────
             Text(
                 text = "My Notes",
                 fontSize = 28.sp,
                 fontWeight = FontWeight.ExtraBold,
                 color = MaterialTheme.colorScheme.onBackground
             )
-            
+
+            // Live result count
             Text(
-                text = "${notesList.size} items stored securely",
+                text = if (searchQuery.isBlank())
+                    "${notesList.size} items stored securely"
+                else
+                    "${filteredNotes.size} of ${notesList.size} notes found",
                 fontSize = 14.sp,
-                color = TextSecondary,
-                modifier = Modifier.padding(bottom = 24.dp)
+                color = if (searchQuery.isBlank()) TextSecondary else PrimaryBlue,
+                fontWeight = if (searchQuery.isBlank()) FontWeight.Normal else FontWeight.Medium,
+                modifier = Modifier.padding(bottom = 16.dp)
             )
+
+            // ── SEARCH BAR ──────────────────────────────────────────────
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = { searchQuery = it },
+                placeholder = {
+                    Text(
+                        text = "Search by title, content or category...",
+                        color = TextTertiary,
+                        fontSize = 14.sp
+                    )
+                },
+                leadingIcon = {
+                    Icon(
+                        imageVector = Icons.Filled.Search,
+                        contentDescription = "Search",
+                        tint = if (searchQuery.isNotBlank()) PrimaryBlue else TextSecondary,
+                        modifier = Modifier.size(22.dp)
+                    )
+                },
+                trailingIcon = {
+                    AnimatedVisibility(
+                        visible = searchQuery.isNotBlank(),
+                        enter = fadeIn() + scaleIn(),
+                        exit = fadeOut() + scaleOut()
+                    ) {
+                        IconButton(onClick = { searchQuery = "" }) {
+                            Icon(
+                                imageVector = Icons.Filled.Close,
+                                contentDescription = "Clear search",
+                                tint = TextSecondary,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
+                },
+                modifier = Modifier
+                    .fillMaxWidth(),
+                singleLine = true,
+                shape = RoundedCornerShape(14.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = PrimaryBlue,
+                    unfocusedBorderColor = BorderLight,
+                    focusedContainerColor = MaterialTheme.colorScheme.surface,
+                    unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                    focusedLabelColor = PrimaryBlue,
+                    cursorColor = PrimaryBlue
+                )
+            )
+
+            // Active filter chip — visible when search is active
+            AnimatedVisibility(
+                visible = searchQuery.isNotBlank(),
+                enter = fadeIn() + expandVertically(),
+                exit = fadeOut() + shrinkVertically()
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    FilterChip(
+                        selected = true,
+                        onClick = { searchQuery = "" },
+                        label = {
+                            Text(
+                                text = "\"$searchQuery\"  ✕",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = PrimaryBlue.copy(alpha = 0.12f),
+                            selectedLabelColor = PrimaryBlue
+                        )
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
 
             if (viewModel.isLoading) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -113,12 +208,47 @@ fun NotesScreen(
                 }
             } else if (notesList.isEmpty()) {
                 EmptyNotesView()
+            } else if (filteredNotes.isEmpty()) {
+                // ── No search results ──────────────────────────────────
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(
+                            imageVector = Icons.Filled.Search,
+                            contentDescription = null,
+                            tint = TextTertiary,
+                            modifier = Modifier.size(72.dp)
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(
+                            text = "No results for \"$searchQuery\"",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = "Try searching by a different title,\ncontent, or category.",
+                            fontSize = 14.sp,
+                            color = TextTertiary,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                            lineHeight = 20.sp
+                        )
+                        Spacer(modifier = Modifier.height(20.dp))
+                        OutlinedButton(
+                            onClick = { searchQuery = "" },
+                            shape = RoundedCornerShape(10.dp),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, PrimaryBlue)
+                        ) {
+                            Text("Clear Search", color = PrimaryBlue, fontWeight = FontWeight.Medium)
+                        }
+                    }
+                }
             } else {
                 LazyColumn(
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                     contentPadding = PaddingValues(bottom = 80.dp) // extra space for FAB
                 ) {
-                    items(notesList, key = { it.id }) { note ->
+                    items(filteredNotes, key = { it.id }) { note ->
                         NoteCard(
                             note = note,
                             onClick = {
@@ -260,7 +390,11 @@ fun NoteCard(
                 // Category Tag
                 Surface(
                     shape = RoundedCornerShape(8.dp),
-                    color = note.color.copy(alpha = 0.1f),
+                    color = note.color.copy(alpha = 0.25f),
+                    border = androidx.compose.foundation.BorderStroke(
+                        width = 1.dp,
+                        color = note.color.copy(alpha = 0.6f)
+                    )
                 ) {
                     Text(
                         text = note.category.uppercase(),
@@ -354,5 +488,14 @@ fun EmptyNotesView() {
                 color = TextTertiary
             )
         }
+    }
+}
+
+
+@androidx.compose.ui.tooling.preview.Preview(showBackground = true)
+@androidx.compose.runtime.Composable
+fun NotesScreenPreview() {
+    com.example.notehub.ui.theme.NoteHubTheme {
+        NotesScreen(onAddNoteClick = {})
     }
 }

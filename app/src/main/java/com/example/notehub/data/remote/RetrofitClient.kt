@@ -13,14 +13,7 @@ import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import java.util.concurrent.TimeUnit
 
-/**
- * RetrofitClient — Initializes Retrofit network connection targeting the AWS Laravel backend.
- * Applies automatic path/payload translation for Laravel API compatibility.
- *
- * Base URL: http://44-197-113-192.nip.io/api/
- * Online  → always uses AWS (Laravel) endpoint
- * Offline → network calls are skipped by AuthService / ViewModel before reaching here
- */
+// Initializes network connection to AWS Laravel backend
 object RetrofitClient {
 
     fun getBaseUrl(): String {
@@ -42,10 +35,7 @@ object RetrofitClient {
         }
     }
 
-    /**
-     * Interceptor that handles both local PHP backend cookie sessions and AWS Sanctum Bearer tokens,
-     * translating path layouts and payload formats dynamically.
-     */
+    // Interceptor for headers and AWS payload translations
     private val authInterceptor = Interceptor { chain ->
         val originalRequest = chain.request()
         val originalUrl = originalRequest.url

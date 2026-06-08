@@ -34,9 +34,7 @@ import com.example.notehub.utils.NetworkMonitor
 import androidx.compose.ui.tooling.preview.Preview
 import kotlinx.coroutines.launch
 
-/**
- * SignUpScreen — Premium registration screen.
- */
+// Premium registration screen
 @Composable
 fun SignUpScreen(
     onSignUpSuccess: () -> Unit,
