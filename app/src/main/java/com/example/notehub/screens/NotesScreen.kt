@@ -400,7 +400,7 @@ fun NoteCard(
                         text = note.category.uppercase(),
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Black,
-                        color = note.color,
+                        color = MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                         letterSpacing = 1.sp
                     )

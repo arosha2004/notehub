@@ -538,7 +538,7 @@ fun LocationNotePreviewCard(
                 ) {
                     Text(
                         text = note.category.uppercase(),
-                        color = categoryColor,
+                        color = MaterialTheme.colorScheme.onSurface,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
                         letterSpacing = 0.5.sp
@@ -701,7 +701,7 @@ fun LocationNoteMiniCard(
                         text = note.category,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
-                        color = categoryColor
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
                         text = distanceText,
